@@ -1,0 +1,161 @@
+/* Custom scrollbar styling for chat components */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thumb-gray-700::-webkit-scrollbar-thumb {
+  background-color: rgb(55 65 81);
+  border-radius: 0.5rem;
+}
+
+.scrollbar-track-transparent::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgb(55 65 81);
+  border-radius: 0.5rem;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(75 85 99);
+}
+
+/* Smooth animations for chat messages */
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.message-own {
+  animation: slideInFromRight 0.3s ease-out;
+}
+
+.message-other {
+  animation: slideInFromLeft 0.3s ease-out;
+}
+
+/* Gradient text effects */
+.gradient-text {
+  background: linear-gradient(135deg, #ffffff 0%, #e5e7eb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Hover effects for interactive elements */
+.hover-lift {
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* Message bubble animations */
+.message-bubble {
+  transition: all 0.2s ease-in-out;
+}
+
+.message-bubble:hover {
+  transform: scale(1.02);
+}
+
+/* Loading spinner enhancements */
+.spinner-double {
+  position: relative;
+}
+
+.spinner-double::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 4px solid transparent;
+  border-top-color: rgb(59 130 246);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.spinner-double::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 4px solid transparent;
+  border-right-color: rgb(96 165 250);
+  border-radius: 50%;
+  animation: spin 1.5s linear infinite reverse;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Layout fixes for proper positioning */
+.chat-container {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.chat-input {
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
+/* Responsive design enhancements */
+@media (max-width: 768px) {
+  .chat-container {
+    height: calc(100vh - 80px);
+  }
+  
+  .message-input {
+    padding: 0.75rem;
+  }
+  
+  .message-bubble {
+    max-width: 85%;
+  }
+}
+
+@media (max-width: 640px) {
+  .message-bubble {
+    max-width: 90%;
+  }
+  
+  .chat-header {
+    padding: 1rem;
+  }
+}
