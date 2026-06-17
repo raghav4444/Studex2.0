@@ -86,6 +86,7 @@ export const useStudyGroups = () => {
       },
       isPrivate: false,
       tags: ['DSA', 'Coding', 'Interview Prep'],
+      meetingLocation: 'Library room 204',
       createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
     },
     {
@@ -124,6 +125,7 @@ export const useStudyGroups = () => {
       },
       isPrivate: true,
       tags: ['Quantum', 'Physics', 'Research'],
+      meetingLink: 'https://meet.google.com/xyz-quantum',
       createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
     },
     {
@@ -162,6 +164,7 @@ export const useStudyGroups = () => {
       },
       isPrivate: false,
       tags: ['CAD', 'Design', 'Projects'],
+      nextSessionAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
       createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
     },
   ];
@@ -338,7 +341,7 @@ export const useStudyGroups = () => {
 
       const { data: groups, error: groupsError } = await supabase
         .from('study_groups')
-        .select(`id, ${creatorCol}, name, subject, description, max_members, is_private, tags, created_at`)
+        .select(`id, ${creatorCol}, name, subject, description, max_members, is_private, tags, cover_image_url, meeting_location, meeting_link, next_session_at, created_at, updated_at`)
         .order('created_at', { ascending: false });
 
       if (groupsError) {
@@ -403,6 +406,12 @@ export const useStudyGroups = () => {
         createdBy: toUiUser(profilesByUserId.get(group[creatorCol]), group[creatorCol]),
         isPrivate: group.is_private,
         tags: group.tags || [],
+        coverImage: group.cover_image_url || undefined,
+        coverImageUrl: group.cover_image_url || undefined,
+        meetingLocation: group.meeting_location || undefined,
+        meetingLink: group.meeting_link || undefined,
+        nextSessionAt: group.next_session_at ? new Date(group.next_session_at) : undefined,
+        updatedAt: group.updated_at ? new Date(group.updated_at) : undefined,
         createdAt: new Date(group.created_at),
       }));
 
@@ -430,13 +439,17 @@ export const useStudyGroups = () => {
     maxMembers: number;
     isPrivate: boolean;
     tags: string[];
+    coverImageUrl?: string;
+    meetingLocation?: string;
+    meetingLink?: string;
+    nextSessionAt?: Date | null;
   }) => {
     if (!user) throw new Error('User not authenticated');
 
     try {
       const currentAuthUserId = await resolveAuthUserId();
       const creatorCol = await detectCreatorColumn();
-      const insertPayload = {
+      const insertPayload: Record<string, unknown> = {
         name: groupData.name,
         subject: groupData.subject,
         description: groupData.description,
@@ -445,6 +458,11 @@ export const useStudyGroups = () => {
         tags: groupData.tags,
         [creatorCol]: currentAuthUserId,
       };
+
+      if (groupData.coverImageUrl) insertPayload.cover_image_url = groupData.coverImageUrl;
+      if (groupData.meetingLocation) insertPayload.meeting_location = groupData.meetingLocation;
+      if (groupData.meetingLink) insertPayload.meeting_link = groupData.meetingLink;
+      if (groupData.nextSessionAt) insertPayload.next_session_at = groupData.nextSessionAt.toISOString();
 
       const { data, error } = await supabase
         .from('study_groups')
@@ -614,6 +632,10 @@ export const useStudyGroups = () => {
     maxMembers: number;
     isPrivate: boolean;
     tags: string[];
+    coverImageUrl: string;
+    meetingLocation: string;
+    meetingLink: string;
+    nextSessionAt: Date | null;
   }>) => {
     if (!user) throw new Error('User not authenticated');
 
@@ -621,16 +643,24 @@ export const useStudyGroups = () => {
       const currentAuthUserId = await resolveAuthUserId();
       const creatorCol = await detectCreatorColumn();
 
+      const updatePayload: Record<string, unknown> = {};
+
+      if (typeof updates.name !== 'undefined') updatePayload.name = updates.name;
+      if (typeof updates.subject !== 'undefined') updatePayload.subject = updates.subject;
+      if (typeof updates.description !== 'undefined') updatePayload.description = updates.description;
+      if (typeof updates.maxMembers !== 'undefined') updatePayload.max_members = updates.maxMembers;
+      if (typeof updates.isPrivate !== 'undefined') updatePayload.is_private = updates.isPrivate;
+      if (typeof updates.tags !== 'undefined') updatePayload.tags = updates.tags;
+      if (typeof updates.coverImageUrl !== 'undefined') updatePayload.cover_image_url = updates.coverImageUrl;
+      if (typeof updates.meetingLocation !== 'undefined') updatePayload.meeting_location = updates.meetingLocation;
+      if (typeof updates.meetingLink !== 'undefined') updatePayload.meeting_link = updates.meetingLink;
+      if (typeof updates.nextSessionAt !== 'undefined') {
+        updatePayload.next_session_at = updates.nextSessionAt ? updates.nextSessionAt.toISOString() : null;
+      }
+
       const { error } = await supabase
         .from('study_groups')
-        .update({
-          name: updates.name,
-          subject: updates.subject,
-          description: updates.description,
-          max_members: updates.maxMembers,
-          is_private: updates.isPrivate,
-          tags: updates.tags,
-        })
+        .update(updatePayload)
         .eq('id', groupId)
         .eq(creatorCol, currentAuthUserId);
 
@@ -678,6 +708,42 @@ export const useStudyGroups = () => {
     try {
       const currentAuthUserId = await resolveAuthUserId();
       const creatorCol = await detectCreatorColumn();
+
+      const { data: request, error: requestError } = await supabase
+        .from('study_group_join_requests')
+        .select('id, group_id, requester_id, status')
+        .eq('id', requestId)
+        .single();
+
+      if (requestError || !request) {
+        throw requestError || new Error('Join request not found');
+      }
+
+      if (decision === 'accepted') {
+        const { data: group, error: groupError } = await supabase
+          .from('study_groups')
+          .select('id, max_members')
+          .eq('id', request.group_id)
+          .single();
+
+        if (groupError || !group) {
+          throw groupError || new Error('Study group not found');
+        }
+
+        const { count: memberCount, error: memberCountError } = await supabase
+          .from('study_group_members')
+          .select('*', { count: 'exact', head: true })
+          .eq('group_id', request.group_id);
+
+        if (memberCountError) {
+          throw memberCountError;
+        }
+
+        if ((memberCount || 0) >= group.max_members) {
+          throw new Error('This group has reached the member limit');
+        }
+      }
+
       const { error: updateError } = await supabase
         .from('study_group_join_requests')
         .update({ status: decision })
@@ -687,7 +753,24 @@ export const useStudyGroups = () => {
         throw updateError;
       }
 
+      if (decision === 'accepted') {
+        const { error: memberInsertError } = await supabase
+          .from('study_group_members')
+          .upsert(
+            {
+              group_id: request.group_id,
+              user_id: request.requester_id,
+            },
+            { onConflict: 'group_id,user_id' }
+          );
+
+        if (memberInsertError) {
+          throw memberInsertError;
+        }
+      }
+
       await fetchJoinRequestData(studyGroups, currentAuthUserId, creatorCol);
+      await fetchStudyGroups();
     } catch (err) {
       console.error('Error responding to join request:', err);
       throw err;

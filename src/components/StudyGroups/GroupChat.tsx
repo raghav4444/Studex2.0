@@ -1,30 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  MessageSquare, 
-  Send, 
-  Smile, 
-  Paperclip, 
-  Mic, 
-  MicOff, 
-  Video, 
-  VideoOff, 
-  Phone, 
-  PhoneOff, 
-  MoreVertical, 
-  Users, 
-  Settings, 
-  Volume2, 
-  VolumeX,
-  Maximize2,
-  Minimize2,
-  X,
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
   Check,
   CheckCheck,
-  Clock,
-  AlertCircle,
-  Info
+  Maximize2,
+  MessageSquare,
+  Minimize2,
+  Paperclip,
+  Send,
+  Smile,
+  X,
 } from 'lucide-react';
 import { StudyGroup } from '../../types';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../AuthProvider';
 
 interface Message {
   id: string;
@@ -37,7 +25,7 @@ interface Message {
   timestamp: Date;
   type: 'text' | 'image' | 'file' | 'system';
   isRead: boolean;
-  reactions?: { emoji: string; users: string[] }[];
+  fileName?: string;
 }
 
 interface GroupChatProps {
@@ -47,306 +35,252 @@ interface GroupChatProps {
 }
 
 const GroupChat: React.FC<GroupChatProps> = ({ group, isOpen, onClose }) => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      content: 'Welcome to the group chat! 🎉',
-      sender: { id: 'system', name: 'System' },
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      type: 'system',
-      isRead: true,
-    },
-    {
-      id: '2',
-      content: 'Hey everyone! Ready for our study session tomorrow?',
-      sender: { id: '1', name: 'Sarah Chen' },
-      timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000),
-      type: 'text',
-      isRead: true,
-      reactions: [{ emoji: '👍', users: ['2', '3'] }],
-    },
-    {
-      id: '3',
-      content: 'Absolutely! I\'ve prepared some practice problems.',
-      sender: { id: '2', name: 'Mike Johnson' },
-      timestamp: new Date(Date.now() - 45 * 60 * 1000),
-      type: 'text',
-      isRead: true,
-    },
-    {
-      id: '4',
-      content: 'Same here! Looking forward to it.',
-      sender: { id: '3', name: 'Alex Rodriguez' },
-      timestamp: new Date(Date.now() - 30 * 60 * 1000),
-      type: 'text',
-      isRead: false,
-    },
-  ]);
-
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [typingUsers, setTypingUsers] = useState<string[]>([]);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isVideoCall, setIsVideoCall] = useState(false);
-  const [isAudioCall, setIsAudioCall] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showFileUpload, setShowFileUpload] = useState(false);
-  const [onlineUsers, setOnlineUsers] = useState<string[]>(['1', '2', '3']);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const emojis = useMemo(() => ['😀', '😂', '😍', '🤔', '👍', '👎', '❤️', '🎉', '🔥', '💯'], []);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const loadMessages = async () => {
+    try {
+      setLoading(true);
+      setLoadError(null);
+
+      const { data: rows, error } = await supabase
+        .from('study_group_messages')
+        .select('id, sender_id, content, message_type, file_name, created_at')
+        .eq('group_id', group.id)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      const senderIds = Array.from(new Set((rows || []).map((row) => row.sender_id)));
+      const { data: profiles } = senderIds.length > 0
+        ? await supabase
+            .from('profiles')
+            .select('user_id, name, username, avatar_url')
+            .in('user_id', senderIds)
+        : { data: [] };
+
+      const profileMap = new Map((profiles || []).map((profile: any) => [profile.user_id, profile]));
+
+      setMessages((rows || []).map((row: any) => {
+        const profile = profileMap.get(row.sender_id);
+        const senderName = row.sender_id === user?.id ? 'You' : profile?.name || profile?.username || 'Study Mate';
+
+        return {
+          id: row.id,
+          content: row.content,
+          sender: {
+            id: row.sender_id,
+            name: senderName,
+            avatar: profile?.avatar_url,
+          },
+          timestamp: new Date(row.created_at),
+          type: row.message_type,
+          isRead: true,
+          fileName: row.file_name || undefined,
+        };
+      }));
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Failed to load chat');
+      setMessages([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    scrollToBottom();
+    if (isOpen) {
+      void loadMessages();
+    }
+  }, [group.id, isOpen]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim()) return;
-
-    const message: Message = {
-      id: Date.now().toString(),
-      content: newMessage.trim(),
-      sender: { id: 'current-user', name: 'You' },
-      timestamp: new Date(),
-      type: 'text',
-      isRead: false,
-    };
-
-    setMessages(prev => [...prev, message]);
-    setNewMessage('');
-    setIsTyping(false);
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNewMessage(e.target.value);
-    if (!isTyping && e.target.value) {
-      setIsTyping(true);
-      // Simulate typing indicator
-      setTimeout(() => setIsTyping(false), 2000);
-    }
-  };
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: true 
-    });
-  };
+  const formatTime = (date: Date) => date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
 
   const formatDate = (date: Date) => {
     const now = new Date();
     const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     if (diffInDays === 0) return 'Today';
     if (diffInDays === 1) return 'Yesterday';
     return date.toLocaleDateString();
   };
 
   const getMessageStatus = (message: Message) => {
-    if (message.sender.id === 'current-user') {
+    if (message.sender.id === user?.id) {
       return message.isRead ? <CheckCheck className="w-4 h-4 text-blue-400" /> : <Check className="w-4 h-4 text-gray-400" />;
     }
+
     return null;
   };
 
-  const emojis = ['😀', '😂', '😍', '🤔', '👍', '👎', '❤️', '🎉', '🔥', '💯'];
+  const handleSendMessage = async () => {
+    if (!newMessage.trim()) return;
+
+    try {
+      setSending(true);
+
+      const { data } = await supabase.auth.getUser();
+      const currentUserId = data.user?.id || user?.id;
+
+      if (!currentUserId) {
+        throw new Error('User not authenticated');
+      }
+
+      const { error } = await supabase.from('study_group_messages').insert({
+        group_id: group.id,
+        sender_id: currentUserId,
+        content: newMessage.trim(),
+        message_type: 'text',
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setNewMessage('');
+      setShowEmojiPicker(false);
+      await loadMessages();
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      void handleSendMessage();
+    }
+  };
 
   if (!isOpen) return null;
 
   return (
-    <div className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 ${isFullscreen ? 'p-0' : ''}`}>
-      <div className={`bg-[#161b22] rounded-lg border border-gray-800 flex flex-col ${isFullscreen ? 'w-full h-full rounded-none' : 'w-full max-w-4xl h-[80vh]'}`}>
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-800">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 ${isFullscreen ? 'p-0' : ''}`}>
+      <div className={`flex flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#161b22] ${isFullscreen ? 'h-full w-full rounded-none' : 'h-[80vh] w-full max-w-4xl'}`}>
+        <div className="flex items-center justify-between border-b border-white/10 p-4">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-              <MessageSquare className="w-5 h-5 text-blue-400" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-500/20 text-blue-300">
+              <MessageSquare className="h-5 w-5" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-white">{group.name}</h3>
-              <div className="flex items-center space-x-2">
-                <div className="flex items-center space-x-1">
-                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                  <span className="text-xs text-gray-400">{onlineUsers.length} online</span>
-                </div>
-                <span className="text-xs text-gray-500">•</span>
-                <span className="text-xs text-gray-400">{group.members.length} members</span>
+              <div className="flex items-center space-x-2 text-xs text-gray-400">
+                <span>{group.members.length} members</span>
+                <span>•</span>
+                <span>{group.isPrivate ? 'Private room' : 'Open room'}</span>
               </div>
             </div>
           </div>
 
           <div className="flex items-center space-x-2">
-            {/* Call Controls */}
             <button
-              onClick={() => setIsAudioCall(!isAudioCall)}
-              className={`p-2 rounded-lg transition-colors ${
-                isAudioCall ? 'bg-green-500 text-white' : 'bg-gray-700 text-gray-400 hover:text-white'
-              }`}
+              onClick={() => setIsFullscreen((prev) => !prev)}
+              className="rounded-lg bg-gray-700 p-2 text-gray-400 transition-colors hover:text-white"
             >
-              {isAudioCall ? <PhoneOff className="w-4 h-4" /> : <Phone className="w-4 h-4" />}
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>
-            
-            <button
-              onClick={() => setIsVideoCall(!isVideoCall)}
-              className={`p-2 rounded-lg transition-colors ${
-                isVideoCall ? 'bg-green-500 text-white' : 'bg-gray-700 text-gray-400 hover:text-white'
-              }`}
-            >
-              {isVideoCall ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
-            </button>
-
-            <button
-              onClick={() => setIsMuted(!isMuted)}
-              className={`p-2 rounded-lg transition-colors ${
-                isMuted ? 'bg-red-500 text-white' : 'bg-gray-700 text-gray-400 hover:text-white'
-              }`}
-            >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </button>
-
-            <button
-              onClick={() => setIsFullscreen(!isFullscreen)}
-              className="p-2 bg-gray-700 text-gray-400 hover:text-white rounded-lg transition-colors"
-            >
-              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-            </button>
-
             <button
               onClick={onClose}
-              className="p-2 bg-gray-700 text-gray-400 hover:text-white rounded-lg transition-colors"
+              className="rounded-lg bg-gray-700 p-2 text-gray-400 transition-colors hover:text-white"
             >
-              <X className="w-4 h-4" />
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {loading && <div className="py-10 text-center text-gray-400">Loading group chat...</div>}
+          {loadError && <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-3 text-sm text-yellow-200">{loadError}</div>}
+
           {messages.map((message, index) => {
             const showDate = index === 0 || formatDate(message.timestamp) !== formatDate(messages[index - 1].timestamp);
-            
+            const isCurrentUser = message.sender.id === user?.id;
+
             return (
               <div key={message.id}>
                 {showDate && (
-                  <div className="flex items-center justify-center my-4">
-                    <span className="text-xs text-gray-500 bg-[#0d1117] px-3 py-1 rounded-full">
-                      {formatDate(message.timestamp)}
-                    </span>
+                  <div className="my-4 flex items-center justify-center">
+                    <span className="rounded-full bg-[#0d1117] px-3 py-1 text-xs text-gray-500">{formatDate(message.timestamp)}</span>
                   </div>
                 )}
 
-                <div className={`flex items-start space-x-3 ${message.sender.id === 'current-user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                <div className={`flex items-start space-x-3 ${isCurrentUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-xs font-bold text-white">
                     {message.sender.name.charAt(0)}
                   </div>
-                  
-                  <div className={`flex-1 max-w-xs ${message.sender.id === 'current-user' ? 'text-right' : ''}`}>
-                    {message.type === 'system' ? (
-                      <div className="flex items-center space-x-2 text-gray-400 text-sm">
-                        <Info className="w-4 h-4" />
-                        <span>{message.content}</span>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex items-center space-x-2 mb-1">
-                          <span className="text-sm font-medium text-white">{message.sender.name}</span>
-                          <span className="text-xs text-gray-500">{formatTime(message.timestamp)}</span>
-                        </div>
-                        
-                        <div className={`p-3 rounded-lg ${
-                          message.sender.id === 'current-user' 
-                            ? 'bg-blue-500 text-white' 
-                            : 'bg-[#0d1117] text-white border border-gray-700'
-                        }`}>
-                          <p className="text-sm">{message.content}</p>
-                        </div>
 
-                        {message.reactions && message.reactions.length > 0 && (
-                          <div className="flex items-center space-x-1 mt-2">
-                            {message.reactions.map((reaction, idx) => (
-                              <button
-                                key={idx}
-                                className="flex items-center space-x-1 bg-gray-700 hover:bg-gray-600 text-xs px-2 py-1 rounded-full transition-colors"
-                              >
-                                <span>{reaction.emoji}</span>
-                                <span className="text-gray-300">{reaction.users.length}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                  <div className={`max-w-xs flex-1 ${isCurrentUser ? 'text-right' : ''}`}>
+                    <div className="mb-1 flex items-center space-x-2">
+                      <span className="text-sm font-medium text-white">{message.sender.name}</span>
+                      <span className="text-xs text-gray-500">{formatTime(message.timestamp)}</span>
+                    </div>
 
-                        <div className="flex items-center justify-between mt-1">
-                          <div className="flex items-center space-x-1">
-                            {getMessageStatus(message)}
-                          </div>
-                        </div>
-                      </>
-                    )}
+                    <div className={`rounded-2xl p-3 ${isCurrentUser ? 'bg-blue-500 text-white' : 'border border-white/10 bg-[#0d1117] text-white'}`}>
+                      <p className="text-sm leading-6">{message.content}</p>
+                      {message.fileName && <p className="mt-2 text-xs text-gray-300">{message.fileName}</p>}
+                    </div>
+
+                    <div className="mt-1 flex items-center justify-between">
+                      <div />
+                      <div>{getMessageStatus(message)}</div>
+                    </div>
                   </div>
                 </div>
               </div>
             );
           })}
 
-          {typingUsers.length > 0 && (
-            <div className="flex items-center space-x-2 text-gray-400 text-sm">
-              <div className="flex space-x-1">
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-              </div>
-              <span>{typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...</span>
-            </div>
-          )}
-
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Message Input */}
-        <div className="p-4 border-t border-gray-800">
+        <div className="border-t border-white/10 p-4">
           <div className="flex items-center space-x-3">
             <button
-              onClick={() => setShowFileUpload(!showFileUpload)}
-              className="p-2 text-gray-400 hover:text-white transition-colors"
+              onClick={() => setShowFileUpload((prev) => !prev)}
+              className="p-2 text-gray-400 transition-colors hover:text-white"
             >
-              <Paperclip className="w-5 h-5" />
+              <Paperclip className="h-5 w-5" />
             </button>
 
-            <div className="flex-1 relative">
+            <div className="relative flex-1">
               <input
                 type="text"
                 value={newMessage}
-                onChange={handleTyping}
-                onKeyPress={handleKeyPress}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
                 placeholder="Type a message..."
-                className="w-full px-4 py-3 bg-[#0d1117] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all"
+                className="w-full rounded-2xl border border-white/10 bg-[#0d1117] px-4 py-3 text-white placeholder-gray-500 outline-none transition-all focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20"
               />
-              
+
               {showEmojiPicker && (
-                <div className="absolute bottom-full left-0 mb-2 p-3 bg-[#0d1117] border border-gray-700 rounded-lg shadow-xl">
+                <div className="absolute bottom-full left-0 mb-2 rounded-2xl border border-white/10 bg-[#0d1117] p-3 shadow-xl">
                   <div className="grid grid-cols-5 gap-2">
-                    {emojis.map((emoji, index) => (
+                    {emojis.map((emoji) => (
                       <button
-                        key={index}
-                        onClick={() => {
-                          setNewMessage(prev => prev + emoji);
-                          setShowEmojiPicker(false);
-                        }}
-                        className="p-2 hover:bg-gray-700 rounded transition-colors"
+                        key={emoji}
+                        type="button"
+                        onClick={() => setNewMessage((prev) => `${prev}${emoji}`)}
+                        className="rounded-lg p-2 transition-colors hover:bg-white/10"
                       >
                         {emoji}
                       </button>
@@ -357,43 +291,33 @@ const GroupChat: React.FC<GroupChatProps> = ({ group, isOpen, onClose }) => {
             </div>
 
             <button
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="p-2 text-gray-400 hover:text-white transition-colors"
+              onClick={() => setShowEmojiPicker((prev) => !prev)}
+              className="p-2 text-gray-400 transition-colors hover:text-white"
             >
-              <Smile className="w-5 h-5" />
-            </button>
-
-            <button
-              onClick={() => setIsRecording(!isRecording)}
-              className={`p-2 rounded-lg transition-colors ${
-                isRecording ? 'bg-red-500 text-white' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              <Smile className="h-5 w-5" />
             </button>
 
             <button
               onClick={handleSendMessage}
-              disabled={!newMessage.trim()}
-              className="p-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors"
+              disabled={!newMessage.trim() || sending}
+              className="rounded-2xl bg-blue-500 p-2 text-white transition-colors hover:bg-blue-600 disabled:bg-gray-700 disabled:text-gray-500"
             >
-              <Send className="w-5 h-5" />
+              <Send className="h-5 w-5" />
             </button>
           </div>
 
           {showFileUpload && (
-            <div className="mt-3 p-3 bg-[#0d1117] border border-gray-700 rounded-lg">
+            <div className="mt-3 rounded-2xl border border-white/10 bg-[#0d1117] p-3">
               <div className="flex items-center space-x-3">
                 <button
+                  type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center space-x-2 px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded transition-colors"
+                  className="rounded-xl bg-blue-500/20 px-3 py-2 text-sm text-blue-300 transition-colors hover:bg-blue-500/30"
                 >
-                  <Paperclip className="w-4 h-4" />
-                  <span className="text-sm">Upload File</span>
+                  Upload File
                 </button>
-                <button className="flex items-center space-x-2 px-3 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded transition-colors">
-                  <MessageSquare className="w-4 h-4" />
-                  <span className="text-sm">Share Screen</span>
+                <button type="button" className="rounded-xl bg-emerald-500/20 px-3 py-2 text-sm text-emerald-300 transition-colors hover:bg-emerald-500/30">
+                  Share Screen
                 </button>
               </div>
               <input

@@ -91,11 +91,43 @@ export interface MentorshipRequest {
   createdAt: Date;
 }
 
+/** Event categories inspired by Unstop/Devpost competition taxonomy. */
+export type EventCategory =
+  | 'hackathon'
+  | 'workshop'
+  | 'conference'
+  | 'competition'
+  | 'webinar'
+  | 'meetup'
+  | 'cultural'
+  | 'sports'
+  | 'fest'
+  | 'seminar';
+
+/** Difficulty for filtering/labeling events. */
+export type EventDifficulty = 'beginner' | 'intermediate' | 'advanced';
+
+/** Event lifecycle status. */
+export type EventStatus = 'draft' | 'published' | 'completed' | 'cancelled';
+
+export interface ScheduleItem {
+  time: string;
+  title: string;
+  description?: string;
+}
+
+export interface FAQ {
+  question: string;
+  answer: string;
+}
+
 export interface Event {
   id: string;
   title: string;
   description: string;
   date: Date;
+  /** End time of the event. Optional — used when isMultiDay is true. */
+  endDate?: Date;
   location: string;
   organizer: User;
   attendees: string[];
@@ -103,6 +135,69 @@ export interface Event {
   tags: string[];
   isOnline: boolean;
   meetingLink?: string;
+  /** Cover image/banner for the event card and detail view. */
+  coverImage?: string;
+  /** Unstop-style categorization. */
+  category: EventCategory;
+  /** Sub-category — e.g. "AI/ML", "Web3", "Design". */
+  subcategory?: string;
+  /** Difficulty targeted. */
+  difficulty: EventDifficulty;
+  /** Lifecycle status. */
+  status: EventStatus;
+  /** Whether the event spans multiple days. */
+  isMultiDay?: boolean;
+  /** Markdown/plaintext eligibility text. */
+  eligibility?: string;
+  /** Rules / guidelines text. */
+  rules?: string;
+  /** Prize information text — e.g. "1st: ₹50k, 2nd: ₹25k". */
+  prizes?: string;
+  /** Total prize pool value (numeric) for sort/filter. */
+  prizePool?: number;
+  /** Currency code for prizePool. */
+  prizeCurrency?: string;
+  /** Entry fee. 0 = free. */
+  fee?: number;
+  /** Min team size (1 for solo). */
+  minTeamSize?: number;
+  /** Max team size (1 for solo). */
+  maxTeamSize?: number;
+  /** Deadline for registration/start of event. */
+  registrationDeadline?: Date;
+  /** Featured hackathons/highlights surfaced in hero. */
+  isFeatured?: boolean;
+  /** Trending score computed by views/likes/saveCount. */
+  trendingScore?: number;
+  /** Optional FAQs in the detail view. */
+  faqs?: FAQ[];
+  /** Day-of schedule timeline. */
+  schedule?: ScheduleItem[];
+  /** List of requirements. */
+  requirements?: string[];
+  /** Contact email for organizer. */
+  contactEmail?: string;
+  /** External website URL. */
+  websiteUrl?: string;
+  /** Primary language (e.g. "English", "Hindi"). */
+  language?: string;
+  /** Number of saved/bookmarked users. */
+  saveCount?: number;
+  /** Number of likes. */
+  likeCount?: number;
+  /** Number of detail-page views. */
+  viewCount?: number;
+  /** Optional gallery of past-event media URLs (recap). */
+  gallery?: string[];
+  /** Allow teams to be formed in-app. */
+  allowsTeams?: boolean;
+  /** Set when the user has bookmarked/saved the event (client state). */
+  isSaved?: boolean;
+  /** Set when the user has liked the event (client state). */
+  isLiked?: boolean;
+  /** Set when the user is registered/attending (mirrors isUserAttending). */
+  isRegistered?: boolean;
+  createdAt?: Date;
 }
 
 export interface StudyGroup {
@@ -115,6 +210,46 @@ export interface StudyGroup {
   createdBy: User;
   isPrivate: boolean;
   tags: string[];
+  createdAt: Date;
+  coverImage?: string;
+  coverImageUrl?: string;
+  meetingLocation?: string;
+  meetingLink?: string;
+  nextSessionAt?: Date;
+  nextSessionTopic?: string;
+  lastActivityAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface StudyGroupAnnouncement {
+  id: string;
+  groupId: string;
+  title: string;
+  body: string;
+  isPinned: boolean;
+  createdAt: Date;
+}
+
+export interface StudyGroupResource {
+  id: string;
+  groupId: string;
+  title: string;
+  description?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  createdAt: Date;
+}
+
+export interface StudyGroupSession {
+  id: string;
+  groupId: string;
+  topic: string;
+  startsAt: Date;
+  endsAt?: Date;
+  location?: string;
+  meetingLink?: string;
+  notes?: string;
   createdAt: Date;
 }
 
@@ -188,4 +323,56 @@ export interface ChatSearchResult {
   year: number;
   isOnline: boolean;
   lastSeen?: Date;
+}
+
+// ============================================================================
+// Event Team System (Unstop-style)
+// ============================================================================
+
+export type TeamMemberRole = 'captain' | 'developer' | 'designer' | 'pm' | 'researcher' | 'member';
+
+export interface TeamMember {
+  userId: string;
+  user: User;
+  role: TeamMemberRole;
+  joinedAt: Date;
+}
+
+export interface EventTeam {
+  id: string;
+  eventId: string;
+  name: string;
+  description?: string;
+  captainId: string;
+  members: TeamMember[];
+  maxSize: number;
+  inviteCode?: string;
+  projectTitle?: string;
+  projectUrl?: string;
+  isOpen: boolean; // accepting new members
+  status: 'active' | 'disbanded';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TeamJoinRequest {
+  id: string;
+  teamId: string;
+  eventId: string;
+  userId: string;
+  user: User;
+  message?: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: Date;
+}
+
+export interface TeamInvite {
+  id: string;
+  teamId: string;
+  eventId: string;
+  email: string;
+  inviteCode: string;
+  status: 'pending' | 'accepted' | 'expired';
+  expiresAt: Date;
+  createdAt: Date;
 }
