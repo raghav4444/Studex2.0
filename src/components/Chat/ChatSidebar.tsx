@@ -1,9 +1,10 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Search, X, UserPlus, UserMinus, Lock, Hash, Users } from 'lucide-react';
 import {
   StudexUser, StudexConversation, StudexChannel, FriendRequest
 } from '../../hooks/useStudexChat';
 import { CreateChannelModal } from './CreateChannelModal';
+import { UsersPanel } from './UsersPanel';
 
 interface ChatSidebarProps {
   conversations: StudexConversation[];
@@ -25,7 +26,7 @@ interface ChatSidebarProps {
   onNewDM: (userId: string) => void;
 }
 
-const DM_AVATAR_FALLBACK_COLORS = [
+const AVATAR_COLORS = [
   'from-indigo-500 to-purple-600',
   'from-pink-500 to-rose-600',
   'from-emerald-500 to-teal-600',
@@ -33,50 +34,28 @@ const DM_AVATAR_FALLBACK_COLORS = [
   'from-blue-500 to-cyan-600',
 ];
 
-// ── Sidebar sections ────────────────────────────────────────
-export const ChannelItem: React.FC<{
-  channel: StudexChannel;
-  isActive: boolean;
-  onSelect: () => void;
-}> = ({ channel, isActive, onSelect }) => (
-  <button
-    onClick={onSelect}
-    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition group ${isActive ? 'bg-indigo-500/20 text-indigo-300 font-medium' : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'}`}
-  >
-    {channel.isPrivate
-      ? <Lock className="w-4 h-4 flex-shrink-0 text-gray-600" />
-      : <Hash className="w-4 h-4 flex-shrink-0 text-gray-600" />
-    }
-    <span className="truncate">{channel.name}</span>
-    {channel.memberCount > 0 && (
-      <span className="ml-auto text-[10px] text-gray-600 flex items-center gap-0.5">
-        <Users className="w-3 h-3" />{channel.memberCount}
-      </span>
-    )}
-  </button>
-);
-
-export const DMItem: React.FC<{
+// ── DM Item row ────────────────────────────────────────────────
+const DMItem: React.FC<{
   conversation: StudexConversation;
   isActive: boolean;
   onSelect: () => void;
-}> = ({ conversation, isActive, onSelect }) => {
+}> = ({ conversation, onSelect }) => {
   const partner = conversation.partner;
-  const colorIdx = Math.abs(partner.username?.charCodeAt(0) || 0) % DM_AVATAR_FALLBACK_COLORS.length;
-  const color = DM_AVATAR_FALLBACK_COLORS[colorIdx];
+  const colorIdx = Math.abs(partner.username?.charCodeAt(0) || 0) % AVATAR_COLORS.length;
+  const color = AVATAR_COLORS[colorIdx];
 
   return (
-    <div className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition group ${isActive ? 'bg-indigo-500/20 text-indigo-300 font-medium' : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'}`}>
-      <button
-        onClick={onSelect}
-        className="flex-1 flex items-center gap-2.5"
-      >
+    <div
+      className={`group flex items-center gap-2.5 px-3 py-2 rounded-lg transition ${
+        false ? 'bg-indigo-500/20 text-indigo-300 font-medium' : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
+      }`}
+    >
+      <button onClick={onSelect} className="flex-1 flex items-center gap-2.5">
         <div className="relative flex-shrink-0">
           <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-white text-xs font-bold overflow-hidden`}>
             {partner.avatar
               ? <img src={partner.avatar} className="w-full h-full object-cover" />
-              : partner.name?.[0]?.toUpperCase()
-            }
+              : partner.name?.[0]?.toUpperCase() ?? '?'}
           </div>
           {partner.isOnline && (
             <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-[#09090b]" />
@@ -92,84 +71,12 @@ export const DMItem: React.FC<{
           </span>
         )}
       </button>
-      <div
-        onClick={e => { e.stopPropagation(); }}
-        className="opacity-0 group-hover:opacity-100 p-1 text-gray-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition flex-shrink-0 cursor-pointer"
-        title="Unfriend"
-      >
-        <UserMinus className="w-3.5 h-3.5" />
-      </div>
-    </div>
-  );
-};
-
-// ── User Search for new DMs ─────────────────────────────────
-const NewDMSearch: React.FC<{
-  onSearch: (q: string) => Promise<StudexUser[]>;
-  onSelect: (userId: string) => void;
-  onClose: () => void;
-}> = ({ onSearch, onSelect, onClose }) => {
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<StudexUser[]>([]);
-  const [searching, setSearching] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout>>();
-
-  const search = (q: string) => {
-    setQuery(q);
-    clearTimeout(timer.current);
-    if (!q.trim()) { setResults([]); return; }
-    setSearching(true);
-    timer.current = setTimeout(async () => {
-      try { setResults(await onSearch(q)); }
-      finally { setSearching(false); }
-    }, 350);
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-12 px-4">
-      <button onClick={onClose} className="absolute inset-0 bg-black/70 backdrop-blur-sm" aria-label="Close" />
-      <div className="relative w-full max-w-md bg-[#13131a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-      <div className="p-3 border-b border-white/5">
-        <div className="flex items-center gap-2">
-          <Search className="w-3.5 h-3.5 text-gray-500" />
-          <input
-            autoFocus
-            value={query}
-            onChange={e => search(e.target.value)}
-            placeholder="Search people..."
-            className="flex-1 text-sm text-white placeholder-gray-500 bg-transparent focus:outline-none"
-          />
-          {query && <button onClick={() => search('')}><X className="w-3.5 h-3.5 text-gray-500" /></button>}
-        </div>
-      </div>
-      <div className="max-h-60 overflow-y-auto divide-y divide-white/5">
-        {searching && <p className="text-gray-600 text-xs text-center py-4">Searching...</p>}
-        {!searching && results.length === 0 && query && <p className="text-gray-600 text-xs text-center py-4">No users found</p>}
-        {results.map(u => (
-          <button
-            key={u._id}
-            onClick={() => { onSelect(u.supabaseId || (u as any)._id); onClose(); }}
-            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.04] transition"
-          >
-            <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${DM_AVATAR_FALLBACK_COLORS[Math.abs(u.username?.charCodeAt(0) || 0) % 5]} flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden`}>
-              {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : u.name?.[0]?.toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0 text-left">
-              <p className="text-white text-sm font-medium truncate">{u.name}</p>
-              <p className="text-gray-500 text-xs truncate">@{u.username} · {u.college}</p>
-            </div>
-            <UserPlus className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-          </button>
-        ))}
-        {!query && <p className="text-gray-600 text-xs text-center py-4">Type to search for people</p>}
-      </div>
-      </div>
     </div>
   );
 };
 
 // ── Main Sidebar ─────────────────────────────────────────────
-const ChatSidebar: React.FC<ChatSidebarProps> = ({
+export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   conversations, channels, friends, friendRequests,
   activeView, connected, typing, onlineUsers,
   onSelectChannel, onSelectDM, onSearchUser,
@@ -178,32 +85,25 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
 }) => {
   const [channelsOpen, setChannelsOpen] = useState(true);
   const [dmsOpen, setDMsOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<'channels' | 'dms' | 'people'>('channels');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showDMSearch, setShowDMSearch] = useState(false);
   const [showRequests, setShowRequests] = useState(false);
   const requestsRef = useRef<HTMLDivElement>(null);
 
-  // ── Helpers ───────────────────────────────────────────────
   const isOnline = useCallback((user: StudexUser) =>
     onlineUsers.some(o => (o._id || o.supabaseId) === (user._id || user.supabaseId)), [onlineUsers]);
 
   const activeChannelId = activeView?.type === 'channel' ? activeView.channel._id : null;
-  const activeDMId = activeView?.type === 'dm' ? (activeView.conversation.partner.supabaseId || (activeView.conversation.partner as any)._id) : null;
-
-  const formatTime = (date?: Date) => {
-    if (!date) return '';
-    const diff = Math.floor((Date.now() - new Date(date).getTime()) / 60000);
-    if (diff < 1) return 'just now';
-    if (diff < 60) return `${diff}m`;
-    if (diff < 1440) return `${Math.floor(diff / 60)}h`;
-    return `${Math.floor(diff / 1440)}d`;
-  };
+  const activeDMId = activeView?.type === 'dm'
+    ? (activeView.conversation.partner.supabaseId || (activeView.conversation.partner as any)._id)
+    : null;
 
   const existingChannelNames = channels.map(c => c.name);
 
   return (
     <div className="h-full flex flex-col bg-[#09090b]/90 backdrop-blur-2xl border-r border-white/[0.06] overflow-hidden">
-      {/* ── Header ─────────────────────────────────── */}
+
+      {/* ── Header ── */}
       <div className="px-4 pt-4 pb-3 border-b border-white/[0.06]">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -218,7 +118,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
               <p className="text-gray-600 text-[10px]">{connected ? 'Connected' : 'Connecting...'}</p>
             </div>
           </div>
-          {/* Friend requests button */}
+          {/* Friend requests */}
           <div className="relative" ref={requestsRef}>
             <button
               onClick={() => setShowRequests(!showRequests)}
@@ -231,8 +131,6 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 </span>
               )}
             </button>
-
-            {/* Requests dropdown */}
             {showRequests && (
               <div className="absolute top-full right-0 mt-1 w-72 bg-[#13131a] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
                 <div className="p-3 border-b border-white/5 flex items-center justify-between">
@@ -241,123 +139,154 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 </div>
                 {friendRequests.length === 0 ? (
                   <p className="text-gray-600 text-sm text-center py-6">No pending requests</p>
-                ) : (
-                  friendRequests.map(req => (
-                    <div key={req._id} className="flex items-center gap-3 p-3 hover:bg-white/[0.03] border-b border-white/5 last:border-0">
-                      <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${DM_AVATAR_FALLBACK_COLORS[Math.abs(req.fromUsername?.charCodeAt(0) || 0) % 5]} flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden`}>
-                        {req.fromAvatar ? <img src={req.fromAvatar} className="w-full h-full object-cover" /> : req.fromName[0]?.toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate">{req.fromName}</p>
-                        <p className="text-gray-600 text-xs truncate">{req.fromCollege}</p>
-                      </div>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => { onAcceptFriend(req._id, req); setShowRequests(false); }}
-                          className="p-1.5 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 rounded-lg transition"
-                        >
-                          <span className="text-xs">✓</span>
-                        </button>
-                        <button
-                          onClick={() => { onRejectFriend(req._id); setShowRequests(false); }}
-                          className="p-1.5 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded-lg transition"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                ) : friendRequests.map(req => (
+                  <div key={req._id} className="flex items-center gap-3 p-3 hover:bg-white/[0.03] border-b border-white/5 last:border-b-0">
+                    <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${AVATAR_COLORS[Math.abs(req.fromUsername?.charCodeAt(0) || 0) % 5]} flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden`}>
+                      {req.fromAvatar ? <img src={req.fromAvatar} className="w-full h-full object-cover" /> : req.fromName[0]?.toUpperCase()}
                     </div>
-                  ))
-                )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-medium truncate">{req.fromName}</p>
+                      <p className="text-gray-600 text-xs truncate">{req.fromCollege}</p>
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => { onAcceptFriend(req._id, req); setShowRequests(false); }}
+                        className="p-1.5 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 rounded-lg transition text-xs"
+                      >OK</button>
+                      <button
+                        onClick={() => { onRejectFriend(req._id); setShowRequests(false); }}
+                        className="p-1.5 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded-lg transition"
+                      ><X className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
-          <input
-            placeholder="Search channels..."
-            className="w-full pl-9 pr-4 py-2 bg-white/[0.04] border border-white/[0.07] rounded-xl text-white text-sm placeholder-gray-600 focus:border-indigo-500/40 focus:outline-none transition"
+        {/* ── Tab bar ── */}
+        <div className="flex px-2 border-b border-white/[0.05]">
+          <TabButton
+            active={activeTab === 'channels'}
+            onClick={() => setActiveTab('channels')}
+            icon={<Hash className="w-3.5 h-3.5" />}
+            label="Channels"
+          />
+          <TabButton
+            active={activeTab === 'dms'}
+            onClick={() => setActiveTab('dms')}
+            icon={<Users className="w-3.5 h-3.5" />}
+            label="Messages"
+            badge={conversations.length}
+          />
+          <TabButton
+            active={activeTab === 'people'}
+            onClick={() => setActiveTab('people')}
+            icon={<UserPlus className="w-3.5 h-3.5" />}
+            label="People"
           />
         </div>
       </div>
 
-      {/* ── Scrollable Content ────────────────────── */}
-      <div className="flex-1 overflow-y-auto">
-{/* Section: Channels */}
-        <div className="border-b border-white/[0.05]">
-          <div className="w-full flex items-center justify-between px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-widest hover:text-gray-400 transition">
-            <button onClick={() => setChannelsOpen(!channelsOpen)} className="flex items-center gap-1">
-              {channelsOpen ? '▼' : '▶'} Channels · {channels.length}
-            </button>
-            <div onClick={e => { e.stopPropagation(); setShowCreateModal(true); }} className="p-1 hover:bg-white/5 rounded text-gray-500 hover:text-indigo-400 transition cursor-pointer">
-              <UserPlus className="w-3.5 h-3.5" />
-            </div>
+      {/* ── Channel search (only when on channels tab) ── */}
+      {activeTab === 'channels' && (
+        <div className="px-4 py-3 border-b border-white/[0.05]">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
+            <input
+              placeholder="Search channels..."
+              className="w-full pl-9 pr-4 py-2 bg-white/[0.04] border border-white/[0.07] rounded-xl text-white text-sm placeholder-gray-600 focus:border-indigo-500/40 focus:outline-none transition"
+            />
           </div>
-          {channelsOpen && (
-            <div className="px-2 pb-2 space-y-0.5">
-              {channels.map(ch => (
-                <ChannelItem
-                  key={ch._id}
-                  channel={ch}
-                  isActive={activeChannelId === ch._id}
-                  onSelect={() => onSelectChannel(ch)}
-                />
-              ))}
-              {channels.length === 0 && (
-                <div className="px-3 py-4 text-center">
-                  <p className="text-gray-700 text-xs mb-2">No public channels yet</p>
-                  <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="text-indigo-400 text-xs hover:text-indigo-300 transition"
-                  >+ Create one</button>
-                </div>
-              )}
-            </div>
-          )}
         </div>
+      )}
 
-{/* Section: DMs */}
-        <div>
-          <div className="w-full flex items-center justify-between px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-widest hover:text-gray-400 transition">
-            <button onClick={() => setDMsOpen(!dmsOpen)} className="flex items-center gap-1">
-              {dmsOpen ? '▼' : '▶'} Messages · {conversations.length}
-            </button>
-            <div className="relative">
-              <div onClick={(e) => { e.stopPropagation(); setShowDMSearch(!showDMSearch); }} className="p-1 hover:bg-white/5 rounded text-gray-500 hover:text-indigo-400 transition cursor-pointer">
+      {/* ── Scrollable content ── */}
+      <div className="flex-1 overflow-y-auto">
+
+        {/* Channels tab */}
+        {activeTab === 'channels' && (
+          <div className="border-b border-white/[0.05]">
+            <div className="w-full flex items-center justify-between px-4 py-2.5">
+              <button onClick={() => setChannelsOpen(!channelsOpen)} className="flex items-center gap-1 text-[10px] font-bold text-gray-500 uppercase tracking-widest hover:text-gray-400">
+                {channelsOpen ? 'v' : '>'} Channels {channels.length}
+              </button>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="p-1 hover:bg-white/5 rounded text-gray-500 hover:text-indigo-400 transition"
+              >
                 <UserPlus className="w-3.5 h-3.5" />
-              </div>
-              {showDMSearch && (
-                <NewDMSearch onSearch={onSearchUser} onSelect={onNewDM} onClose={() => setShowDMSearch(false)} />
-              )}
+              </button>
             </div>
-          </div>
-          {dmsOpen && (
-            <div className="px-2 pb-2 space-y-0.5">
-              {conversations.map(conv => (
-                <DMItem
-                  key={(conv.partner.supabaseId || (conv.partner as any)._id) as string}
-                  conversation={conv}
-                  isActive={activeDMId === (conv.partner.supabaseId || (conv.partner as any)._id)}
-                  onSelect={() => onSelectDM(conv)}
-                />
-              ))}
-              {conversations.length === 0 && (
-                <div className="px-3 py-4 text-center">
-                  <p className="text-gray-700 text-xs mb-2">No conversations yet</p>
+            {channelsOpen && (
+              <div className="px-2 pb-2 space-y-0.5">
+                {channels.map(ch => (
                   <button
-                    onClick={() => setShowDMSearch(true)}
-                    className="text-indigo-400 text-xs hover:text-indigo-300 transition"
-                  >+ Start a chat</button>
-                </div>
-              )}
+                    key={ch._id}
+                    onClick={() => onSelectChannel(ch)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${
+                      activeChannelId === ch._id
+                        ? 'bg-indigo-500/20 text-indigo-300 font-medium'
+                        : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    {ch.isPrivate
+                      ? <Lock className="w-4 h-4 flex-shrink-0 text-gray-600" />
+                      : <Hash className="w-4 h-4 flex-shrink-0 text-gray-600" />}
+                    <span className="truncate">{ch.name}</span>
+                  </button>
+                ))}
+                {channels.length === 0 && (
+                  <div className="px-3 py-4 text-center">
+                    <p className="text-gray-700 text-xs mb-2">No channels yet</p>
+                    <button onClick={() => setShowCreateModal(true)} className="text-indigo-400 text-xs hover:text-indigo-300">+ Create one</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* DMs tab */}
+        {activeTab === 'dms' && (
+          <div>
+            <div className="w-full flex items-center gap-1 px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+              {dmsOpen ? 'v' : '>'} Messages {conversations.length}
             </div>
-          )}
-        </div>
+            {dmsOpen && (
+              <div className="px-2 pb-2 space-y-0.5">
+                {conversations.map(conv => (
+                  <DMItem
+                    key={(conv.partner.supabaseId || (conv.partner as any)._id) as string}
+                    conversation={conv}
+                    isActive={activeDMId === (conv.partner.supabaseId || (conv.partner as any)._id)}
+                    onSelect={() => onSelectDM(conv)}
+                  />
+                ))}
+                {conversations.length === 0 && (
+                  <div className="px-3 py-4 text-center">
+                    <p className="text-gray-700 text-xs mb-2">No conversations yet</p>
+                    <button onClick={() => setActiveTab('people')} className="text-indigo-400 text-xs hover:text-indigo-300">+ Start a chat</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* People tab */}
+        {activeTab === 'people' && (
+          <UsersPanel
+            currentUserId={(onlineUsers[0] as any)?.supabaseId || ''}
+            onStartDM={(userId) => { onNewDM(userId); setActiveTab('dms'); }}
+            onSendFriendRequest={onSendFriendRequest}
+            onlineUsers={onlineUsers}
+          />
+        )}
       </div>
 
-      {/* ── Footer ──────────────────────────────── */}
+      {/* ── Footer ── */}
       <div className="px-4 py-3 border-t border-white/5">
         <div className="flex items-center gap-2">
           <div className="flex -space-x-1.5">
@@ -366,7 +295,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 key={i}
                 className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-[9px] font-bold border-2 border-[#09090b] overflow-hidden"
               >
-                {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : u.name?.[0]?.toUpperCase()}
+                {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : (u.name?.[0] ?? '?')}
               </div>
             ))}
           </div>
@@ -374,7 +303,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
         </div>
       </div>
 
-      {/* ── Modals ─────────────────────────────── */}
+      {/* ── Create channel modal ── */}
       {showCreateModal && (
         <CreateChannelModal
           existingChannelNames={existingChannelNames}
@@ -385,5 +314,32 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
     </div>
   );
 };
+
+// ── Tab Button sub-component ─────────────────────────────────
+const TabButton: React.FC<{
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  badge?: number;
+}> = ({ active, onClick, icon, label, badge }) => (
+  <button
+    onClick={onClick}
+    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold transition relative ${
+      active ? 'text-indigo-400' : 'text-gray-600 hover:text-gray-400'
+    }`}
+  >
+    {icon}
+    {label}
+    {!active && badge !== undefined && badge > 0 && (
+      <span className="w-4 h-4 bg-white/10 rounded-full text-[9px] font-bold flex items-center justify-center">
+        {badge}
+      </span>
+    )}
+    {active && (
+      <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-indigo-500 rounded-full" />
+    )}
+  </button>
+);
 
 export default ChatSidebar;

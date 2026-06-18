@@ -120,11 +120,15 @@ const StudexChatPage: React.FC = () => {
   }, [setActiveView, startOrSelectConversation]);
 
   const handleSearchUser = useCallback(async (query: string): Promise<StudexUser[]> => {
+    if (!query.trim() || query.length < 2) return [];
     try {
+      const serverUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       const res = await fetch(
-        `http://localhost:3001/api/users?q=${encodeURIComponent(query)}&supabaseId=${user?.supabaseId || ''}`
+        `${serverUrl}/api/users?q=${encodeURIComponent(query)}&supabaseId=${user?.supabaseId || ''}&limit=12`
       );
-      return res.json() || [];
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.users || data || []; // support both old array and new { users } format
     } catch { return []; }
   }, [user?.supabaseId]);
 

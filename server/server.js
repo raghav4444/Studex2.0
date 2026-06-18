@@ -292,38 +292,103 @@ app.get('/api/users/:supabaseId', async (req, res) => {
 app.get('/api/users', async (req, res) => {
   try {
     const { q, supabaseId } = req.query;
-    let query = {};
-    if (q) {
-      query = { $text: { $search: q } };
+    const limit = Math.min(Number(req.query.limit) || 12, 20);
+
+    let users = [];
+
+    if (q && q.trim().length >= 2) {
+      const query = q.trim();
+      const ql = query.toLowerCase();
+
+      // Strategy 1: Exact username match (always top priority)
+      const exact = await User.findOne({ username: { $regex: `^${query}$`, $options: 'i' } })
+        .select('_id supabaseId name username avatar college branch year isOnline lastSeen isVerified friends sentRequests')
+        .lean();
+
+      // Strategy 2: Prefix match on username and name
+      const prefixUsers = await User.find({
+        _id: { $ne: exact?._id },
+        $and: [
+          {
+            $or: [
+              { username: { $regex: `^${query}`, $options: 'i' } },
+              { name: { $regex: `^${query}`, $options: 'i' } },
+            ],
+          },
+          { supabaseId: { $ne: supabaseId } }, // exclude current user
+        ],
+      })
+        .select('_id supabaseId name username avatar college branch year isOnline lastSeen isVerified friends sentRequests')
+        .limit(limit)
+        .lean();
+
+      // Strategy 3: Contains match (substring anywhere)
+      const remaining = limit - prefixUsers.length - (exact ? 1 : 0);
+      let containsUsers = [];
+      if (remaining > 0) {
+        containsUsers = await User.find({
+          _id: { $nin: [...(exact ? [exact._id] : []), ...prefixUsers.map(u => u._id)] },
+          supabaseId: { $ne: supabaseId },
+          $or: [
+            { username: { $regex: query, $options: 'i' } },
+            { name: { $regex: query, $options: 'i' } },
+          ],
+        })
+          .select('_id supabaseId name username avatar college branch year isOnline lastSeen isVerified friends sentRequests')
+          .limit(remaining)
+          .lean();
+      }
+
+      // Combine in priority order
+      const allRaw = [exact, ...prefixUsers, ...containsUsers].filter(Boolean);
+
+      users = allRaw.slice(0, limit).map(u => ({
+        _id: u._id,
+        supabaseId: u.supabaseId,
+        name: u.name,
+        username: u.username,
+        avatar: u.avatar,
+        college: u.college,
+        branch: u.branch,
+        year: u.year,
+        isOnline: u.isOnline,
+        lastSeen: u.lastSeen,
+        isVerified: u.isVerified,
+      }));
+    } else {
+      // No query → return online users first, then recent
+      users = await User.find({ supabaseId: { $ne: supabaseId } })
+        .select('_id supabaseId name username avatar college branch year isOnline lastSeen isVerified friends sentRequests')
+        .sort({ isOnline: -1, lastSeen: -1 })
+        .limit(limit)
+        .lean()
+        .then(rs => rs.map(u => ({
+          _id: u._id, supabaseId: u.supabaseId, name: u.name, username: u.username,
+          avatar: u.avatar, college: u.college, branch: u.branch, year: u.year,
+          isOnline: u.isOnline, lastSeen: u.lastSeen, isVerified: u.isVerified,
+        })));
     }
-    const users = await User.find(query)
-      .select('_id supabaseId name username avatar college branch year isOnline lastSeen isVerified friends sentRequests')
-      .limit(50)
-      .lean();
 
-    const currentUser = supabaseId ? await User.findOne({ supabaseId }).select('friends sentRequests friendRequests._id').lean() : null;
-    const currentFriends = new Set((currentUser?.friends || []).map(f => String(f)));
-    const sentSet = new Set((currentUser?.sentRequests || []).map(s => String(s)));
+    // Add friend/pending status
+    if (supabaseId) {
+      const currentUser = await User.findOne({ supabaseId })
+        .select('friends sentRequests friendRequests._id')
+        .lean();
+      const currentFriends = new Set((currentUser?.friends || []).map((f) => String(f)));
+      const sentSet = new Set((currentUser?.sentRequests || []).map((s) => String(s)));
 
-    const result = users.map(u => ({
-      _id: u._id,
-      supabaseId: u.supabaseId,
-      name: u.name,
-      username: u.username,
-      avatar: u.avatar,
-      college: u.college,
-      branch: u.branch,
-      year: u.year,
-      isOnline: u.isOnline,
-      lastSeen: u.lastSeen,
-      isVerified: u.isVerified,
-      isFriend: currentFriends.has(String(u._id)),
-      hasSentRequest: sentSet.has(String(u._id)),
-      isSentByOther: currentUser?.friendRequests?.some(r => String(r.from?._id || r.from) === String(u._id)) || false,
-    }));
+      users = users.map(u => ({
+        ...u,
+        isFriend: currentFriends.has(String(u._id)),
+        hasSentRequest: sentSet.has(String(u._id)),
+isSentByOther: currentUser?.friendRequests?.some((r) =>
+           String(r.from?._id || r.from) === String(u._id)) || false,
+      }));
+    }
 
-    res.json(result);
+    res.json({ users, total: users.length });
   } catch (err) {
+    console.error('/api/users error:', err);
     res.status(500).json({ error: err.message });
   }
 });
