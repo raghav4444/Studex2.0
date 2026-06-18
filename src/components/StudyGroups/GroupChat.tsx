@@ -49,6 +49,15 @@ const GroupChat: React.FC<GroupChatProps> = ({ group, isOpen, onClose }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const emojis = useMemo(() => ['😀', '😂', '😍', '🤔', '👍', '👎', '❤️', '🎉', '🔥', '💯'], []);
 
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+  }, [isOpen]);
+
   const loadMessages = async () => {
     try {
       setLoading(true);

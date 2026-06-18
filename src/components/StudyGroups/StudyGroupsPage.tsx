@@ -711,7 +711,7 @@ const StudyGroupsPage: React.FC = () => {
       )}
 
       {showGroupDetails && currentSelectedGroup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm" style={{ overflow: 'hidden' }}>
           <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[1.75rem] border border-white/10 bg-[#161b22] shadow-2xl shadow-black/40">
             <div className="p-5 sm:p-7">
               <div className="mb-6 flex items-start justify-between gap-4">
