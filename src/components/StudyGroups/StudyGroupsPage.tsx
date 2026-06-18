@@ -51,6 +51,7 @@ const StudyGroupsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<GroupTab>('all');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showGroupChat, setShowGroupChat] = useState(false);
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
 
   const {
     studyGroups,
@@ -95,7 +96,7 @@ const StudyGroupsPage: React.FC = () => {
 
         let matchesTab = true;
         if (activeTab === 'my-groups') {
-          matchesTab = group.createdBy.id === user?.id;
+          matchesTab = isUserAdmin(group.id);
         } else if (activeTab === 'joined') {
           matchesTab = isUserMember(group.id);
         }
@@ -117,7 +118,7 @@ const StudyGroupsPage: React.FC = () => {
 
   const stats = useMemo(() => {
     const joinedGroups = studyGroups.filter((group) => isUserMember(group.id)).length;
-    const myGroups = studyGroups.filter((group) => group.createdBy.id === user?.id).length;
+    const myGroups = studyGroups.filter((group) => isUserAdmin(group.id)).length;
     const privateGroups = studyGroups.filter((group) => group.isPrivate).length;
     const pendingRequests = incomingJoinRequests.length;
     const nextSession = [...studyGroups]
@@ -143,6 +144,15 @@ const StudyGroupsPage: React.FC = () => {
       }))
       .slice(0, 8);
   }, [studyGroups, subjects]);
+
+  const formatTimeAgo = (date: Date) => {
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    return `${Math.floor(diffInHours / 24)}d ago`;
+  };
 
   const notificationItems = [
     ...incomingJoinRequests.map((request) => ({
@@ -199,15 +209,6 @@ const StudyGroupsPage: React.FC = () => {
     } catch (joinRequestError) {
       console.error('Error updating join request:', joinRequestError);
     }
-  };
-
-  const formatTimeAgo = (date: Date) => {
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    return `${Math.floor(diffInHours / 24)}d ago`;
   };
 
   const formatDateTime = (date?: Date) => {
@@ -559,7 +560,10 @@ const StudyGroupsPage: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <button className="rounded-full border border-white/10 bg-black/20 p-2 text-white opacity-0 transition-opacity group-hover:opacity-100">
+                  <button
+                    onClick={() => setSelectedGroup(group)}
+                    className="rounded-full border border-white/10 bg-black/20 p-2 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                  >
                     <ChevronRight className="h-4 w-4" />
                   </button>
                 </div>

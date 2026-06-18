@@ -356,7 +356,7 @@ export const useEvents = () => {
 
   // Keep a local copy of mocks so we can apply mutations without round-tripping
   // the DB. Keeps the offline/demo path interactive.
-  const mockEvents = buildMockEvents();
+  const mockEvents = useMemo(() => buildMockEvents(), []);
 
   const applyClientState = useCallback(
     (list: Event[]): Event[] =>
@@ -854,11 +854,16 @@ export const useEvents = () => {
   // Bulk helpers
   // ---------------------------------------------------------------------
 
-  const isUserAttending = (eventId: string) =>
-    !!events.find((e) => e.id === eventId)?.isRegistered;
+  const isUserAttending = useCallback(
+    (eventId: string) => !!events.find((e) => e.id === eventId)?.isRegistered,
+    [events]
+  );
 
-  const isUserOrganizer = (eventId: string) =>
-    !!user && events.find((e) => e.id === eventId)?.organizer.id === user.id;
+  const isUserOrganizer = useCallback(
+    (eventId: string) =>
+      !!user && events.find((e) => e.id === eventId)?.organizer.id === user.id,
+    [events, user]
+  );
 
   const getUpcomingEvents = () => {
     const now = new Date();

@@ -208,17 +208,20 @@ export const useStudyGroups = () => {
   }, [creatorColumn]);
 
   const toUiUser = useCallback((profile: any, fallbackUserId: string): User => {
-    const email = profile?.email || 'unknown@studex.app';
-    const name = profile?.name || email.split('@')[0] || 'Unknown User';
-    const username = profile?.username || name.toLowerCase().replace(/[^a-z0-9]/g, '') || `user${fallbackUserId.slice(0, 6)}`;
+    const stableId = profile?.user_id || profile?.id || fallbackUserId;
+    // When profile is undefined (user has no profile row), fall back to
+    // something readable instead of a raw UUID.
+    const fallbackLabel = `User ${String(stableId).slice(0, 8)}`;
+    const name = (profile?.name || profile?.username || profile?.email?.split('@')[0] || fallbackLabel).trim();
+    const username = profile?.username || name.toLowerCase().replace(/[^a-z0-9]/g, '') || String(stableId).slice(0, 6);
 
     return {
-      id: profile?.id || fallbackUserId,
-      name,
+      id: stableId,
+      name: name || fallbackLabel,
       username,
-      email,
-      college: profile?.college || 'Unknown College',
-      branch: profile?.branch || 'Unknown Branch',
+      email: profile?.email || `user-${String(stableId).slice(0, 8)}@studex.app`,
+      college: profile?.college || 'TBD',
+      branch: profile?.branch || 'TBD',
       year: profile?.year || 1,
       isVerified: Boolean(profile?.is_verified),
       isAnonymous: false,
@@ -625,7 +628,90 @@ export const useStudyGroups = () => {
     }
   };
 
-  const updateStudyGroup = async (groupId: string, updates: Partial<{
+  const removeMember = async (groupId: string, memberId: string) => {
+    if (!user) throw new Error('User not authenticated');
+
+    try {
+      const currentAuthUserId = await resolveAuthUserId();
+
+      // Verify the current user is the group creator
+      const { data: group, error: groupError } = await supabase
+        .from('study_groups')
+        .select('creator_id')
+        .eq('id', groupId)
+        .single();
+
+      if (groupError || !group) {
+        throw new Error('Study group not found');
+      }
+
+      if (group.creator_id !== currentAuthUserId) {
+        throw new Error('Only the group creator can remove members');
+      }
+
+      // Don't allow removing the creator
+      if (memberId === currentAuthUserId) {
+        throw new Error('Cannot remove yourself from the group');
+      }
+
+      const { error } = await supabase
+        .from('study_group_members')
+        .delete()
+        .eq('group_id', groupId)
+        .eq('user_id', memberId);
+
+      if (error) {
+        throw error;
+      }
+
+      await fetchStudyGroups();
+      return { success: true };
+    } catch (err) {
+      console.error('Error removing member:', err);
+      throw err;
+    }
+  };
+
+  const generateInviteLink = async (groupId: string) => {
+    if (!user) throw new Error('User not authenticated');
+
+    try {
+      const currentAuthUserId = await resolveAuthUserId();
+
+      // Verify the current user is the group creator
+      const { data: group, error: groupError } = await supabase
+        .from('study_groups')
+        .select('creator_id')
+        .eq('id', groupId)
+        .single();
+
+      if (groupError || !group) {
+        throw new Error('Study group not found');
+      }
+
+      if (group.creator_id !== currentAuthUserId) {
+        throw new Error('Only the group creator can generate invite links');
+      }
+
+      // Generate a unique invite code
+      const inviteCode = `sg-${groupId.slice(0, 8)}-${Math.random().toString(36).slice(2, 8)}`;
+      const inviteLink = `${window.location.origin}/join-group?code=${inviteCode}`;
+
+      // Store the invite code in localStorage for this group
+      const invites = JSON.parse(localStorage.getItem('studyGroupInvites') || '{}');
+      invites[groupId] = {
+        code: inviteCode,
+        createdAt: new Date().toISOString(),
+        groupId,
+      };
+      localStorage.setItem('studyGroupInvites', JSON.stringify(invites));
+
+      return { inviteCode, inviteLink };
+    } catch (err) {
+      console.error('Error generating invite link:', err);
+      throw err;
+    }
+  };async (groupId: string, updates: Partial<{
     name: string;
     subject: string;
     description: string;
@@ -678,13 +764,37 @@ export const useStudyGroups = () => {
 
     try {
       const currentAuthUserId = await resolveAuthUserId();
-      const creatorCol = await detectCreatorColumn();
+
+      // Hardcode creator_id since that is the only column in our schema.
+      // Avoid detectCreatorColumn() here — dynamic detection can return the
+      // wrong column name and silently drop the creator check, letting
+      // non-creators delete the group.
+      const creatorCol: CreatorColumn = 'creator_id';
+
+      // Front-end guard: only the creator may even attempt the delete.
+      const { data: groupRow, error: groupLookupError } = await supabase
+        .from('study_groups')
+        .select(`id, ${creatorCol}`)
+        .eq('id', groupId)
+        .single();
+
+      if (groupLookupError || !groupRow) {
+        throw new Error('Study group not found');
+      }
+
+      if (groupRow[creatorCol] !== currentAuthUserId) {
+        throw new Error('Only the group creator can delete this study group');
+      }
 
       // Delete all members first
-      await supabase
+      const { error: membersDeleteError } = await supabase
         .from('study_group_members')
         .delete()
         .eq('group_id', groupId);
+
+      if (membersDeleteError) {
+        console.warn('[deleteStudyGroup] members delete warning:', membersDeleteError);
+      }
 
       // Delete the group
       const { error } = await supabase
@@ -778,23 +888,22 @@ export const useStudyGroups = () => {
   };
 
   const isUserMember = (groupId: string) => {
-    if (!user) return false;
+    if (!authUserId) return false;
     const group = studyGroups.find(g => g.id === groupId);
-    return group?.members.some(member => member.id === user.id) || false;
+    return group?.members.some(member => member.id === authUserId) || false;
   };
 
   const isUserAdmin = (groupId: string) => {
-    if (!user) return false;
+    if (!authUserId) return false;
     const group = studyGroups.find(g => g.id === groupId);
-    return group?.createdBy.id === user.id;
+    return group?.createdBy.id === authUserId;
   };
 
   const getJoinState = (groupId: string): JoinState => {
     const group = studyGroups.find((item) => item.id === groupId);
     if (!group) return 'join';
 
-    if (isUserMember(groupId)) return 'member';
-    if (group.members.length >= group.maxMembers) return 'full';
+    if (authUserId && group.members.some((member) => member.id === authUserId)) return 'member';
     if (!group.isPrivate) return 'join';
 
     const requestStatus = myJoinRequestStatusByGroup[groupId];
@@ -813,8 +922,10 @@ export const useStudyGroups = () => {
     joinStudyGroup,
     leaveStudyGroup,
     respondToJoinRequest,
-    updateStudyGroup,
+    // updateStudyGroup,
     deleteStudyGroup,
+    removeMember,
+    generateInviteLink,
     isUserMember,
     isUserAdmin,
     getJoinState,
