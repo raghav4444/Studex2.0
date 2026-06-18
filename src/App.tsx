@@ -29,7 +29,7 @@ const JobsPage = React.lazy(() => import("./components/Jobs/JobsPage"));
 const NotificationsPage = React.lazy(
   () => import("./components/Notifications/NotificationsPage")
 );
-const ChatPage = React.lazy(() => import("./components/Chat/ChatPage"));
+const StudexChatPage = React.lazy(() => import("./components/Chat/StudexChatPage"));
 const ResetPasswordForm = React.lazy(() => import("./components/Auth/ResetPasswordForm"));
 
 const AppContent: React.FC = () => {
@@ -121,7 +121,7 @@ const AppContent: React.FC = () => {
       case "chat":
         return (
           <React.Suspense fallback={<LoadingFallback />}>
-            <ChatPage />
+            <StudexChatPage />
           </React.Suspense>
         );
       case "notes":
@@ -182,17 +182,17 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d1117]">
+    <div className="h-screen bg-[#0d1117] flex flex-col overflow-hidden">
       <React.Suspense
         fallback={
           <div className="bg-[#161b22] border-b border-gray-800 px-4 py-3 animate-pulse">
-            <div className="h-8 bg-gray-700 rounded w-48"></div>
+            <div className="h-10 bg-gray-700 rounded w-48" />
           </div>
         }
       >
         <Header activeTab={activeTab} onTabChange={setActiveTab} />
       </React.Suspense>
-      <main className="pb-20 md:pb-8">{renderContent()}</main>
+      <main className={`flex-1 min-h-0 overflow-hidden ${activeTab === 'chat' ? 'pb-0' : 'pb-20 md:pb-8'}`}>{renderContent()}</main>
     </div>
   );
 };
