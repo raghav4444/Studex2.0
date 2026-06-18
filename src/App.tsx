@@ -182,17 +182,19 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-[#0d1117] flex flex-col overflow-hidden">
+    <div className={`${activeTab === 'chat' ? 'h-screen flex flex-col overflow-hidden' : 'min-h-screen'} bg-[#0d1117]`}>
       <React.Suspense
         fallback={
-          <div className="bg-[#161b22] border-b border-gray-800 px-4 py-3 animate-pulse">
-            <div className="h-10 bg-gray-700 rounded w-48" />
+          <div className={`${activeTab === 'chat' ? 'h-10' : ''} bg-[#161b22] border-b border-gray-800 px-4 py-3 animate-pulse`}>
+            <div className={`h-8 bg-gray-700 rounded w-48 ${activeTab === 'chat' ? 'h-8' : ''}`}></div>
           </div>
         }
       >
         <Header activeTab={activeTab} onTabChange={setActiveTab} />
       </React.Suspense>
-      <main className={`flex-1 min-h-0 overflow-hidden ${activeTab === 'chat' ? 'pb-0' : 'pb-20 md:pb-8'}`}>{renderContent()}</main>
+      <main className={activeTab === 'chat' ? 'flex-1 min-h-0 overflow-hidden' : 'pb-20 md:pb-8'}>
+        {renderContent()}
+      </main>
     </div>
   );
 };
