@@ -22,58 +22,63 @@ export const usePosts = (scope: 'college' | 'global' = 'college') => {
     try {
       let query = supabase
         .from('posts')
-        .select(`
-          *,
-          profiles (
-            id,
-            name,
-            email,
-            college,
-            branch,
-            year,
-            is_verified,
-            avatar_url
-          ),
-          post_likes (count)
-        `)
+        .select(`*, post_likes (count)`)
         .order('created_at', { ascending: false });
-
-      if (scope === 'college') {
-        // Get posts from same college
-        query = query.eq('profiles.college', user.college);
-      }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      const formattedPosts: Post[] = data?.map((post: any) => ({
-        id: post.id,
-        userId: post.user_id,
-        author: {
-          id: post.profiles.id,
-          name: post.is_anonymous ? 'Anonymous' : post.profiles.name,
-          email: post.profiles.email,
-          college: post.profiles.college,
-          branch: post.profiles.branch,
-          year: post.profiles.year,
-          isVerified: post.profiles.is_verified,
-          isAnonymous: post.is_anonymous,
-          avatar: post.profiles.avatar_url,
-          joinedAt: new Date(),
-          lastActive: new Date(),
-        },
-        content: post.content,
-        fileUrl: post.file_url,
-        fileName: post.file_name,
-        fileType: post.file_type,
-        isAnonymous: post.is_anonymous,
-        scope: post.scope,
-        likes: post.post_likes?.[0]?.count || 0,
-        comments: [], // TODO: Implement comments
-        createdAt: new Date(post.created_at),
-        updatedAt: new Date(post.updated_at),
-      })) || [];
+      const formattedPosts: Post[] = [];
+      
+      if (data && data.length > 0) {
+        const userIds = [...new Set(data.map(p => p.user_id))];
+        
+        const profilesResponse = await supabase
+          .from('profiles')
+          .select('id, user_id, name, email, college, branch, year, is_verified, avatar_url')
+          .in('user_id', userIds);
+        
+        const profileMap = new Map(
+          (profilesResponse.data || []).map((p: any) => [p.user_id, p])
+        );
+
+        for (const post of data) {
+          if (scope === 'college' && profileMap.get(post.user_id)?.college !== user.college) {
+            continue;
+          }
+          
+          const profile = profileMap.get(post.user_id);
+          
+          formattedPosts.push({
+            id: post.id,
+            userId: post.user_id,
+            author: {
+              id: profile?.id || post.user_id,
+              name: post.is_anonymous ? 'Anonymous' : (profile?.name || 'Unknown'),
+              email: profile?.email || '',
+              college: profile?.college || '',
+              branch: profile?.branch || '',
+              year: profile?.year || 1,
+              isVerified: profile?.is_verified || false,
+              isAnonymous: post.is_anonymous,
+              avatar: profile?.avatar_url || null,
+              joinedAt: new Date(),
+              lastActive: new Date(),
+            },
+            content: post.content,
+            fileUrl: post.file_url,
+            fileName: post.file_name,
+            fileType: post.file_type,
+            isAnonymous: post.is_anonymous,
+            scope: post.scope,
+            likes: post.post_likes?.[0]?.count || 0,
+            comments: [],
+            createdAt: new Date(post.created_at),
+            updatedAt: new Date(post.updated_at),
+          });
+        }
+      }
 
       setPosts(formattedPosts);
     } catch (error) {
