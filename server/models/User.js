@@ -35,7 +35,12 @@ const userSchema = new mongoose.Schema({
   accessLevel: { type: String, enum: ['full', 'partial', 'read_only'], default: 'full' },
 }, { timestamps: true });
 
+// Text index for $text search: splits query into words, scores by frequency
 userSchema.index({ username: 'text', name: 'text', college: 'text' });
+// Compound index for regex search on username + name (for prefix / substring matching)
+userSchema.index({ username: 1 });
+userSchema.index({ name: 1 });
+userSchema.index({ supabaseId: 1 }, { unique: true });
 
 const User = mongoose.model('User', userSchema);
 export default User;

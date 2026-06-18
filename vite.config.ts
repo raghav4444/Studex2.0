@@ -5,6 +5,7 @@ export default defineConfig(({ command }) => ({
   plugins: [react()],
   base: command === "serve" ? "/" : "/Studex2.0/",
   server: {
+    hmr: { overlay: false },
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
