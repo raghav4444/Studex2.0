@@ -17,7 +17,7 @@ ALTER TABLE study_group_join_requests
   ADD COLUMN IF NOT EXISTS message text;
 
 CREATE TABLE IF NOT EXISTS study_group_messages (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id uuid NOT NULL REFERENCES study_groups(id) ON DELETE CASCADE,
   sender_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   content text NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS study_group_messages (
 );
 
 CREATE TABLE IF NOT EXISTS study_group_announcements (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id uuid NOT NULL REFERENCES study_groups(id) ON DELETE CASCADE,
   title text NOT NULL,
   body text NOT NULL,
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS study_group_announcements (
 );
 
 CREATE TABLE IF NOT EXISTS study_group_resources (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id uuid NOT NULL REFERENCES study_groups(id) ON DELETE CASCADE,
   title text NOT NULL,
   description text,
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS study_group_resources (
 );
 
 CREATE TABLE IF NOT EXISTS study_group_sessions (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id uuid NOT NULL REFERENCES study_groups(id) ON DELETE CASCADE,
   topic text NOT NULL,
   starts_at timestamptz NOT NULL,

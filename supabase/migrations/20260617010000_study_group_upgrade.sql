@@ -23,7 +23,7 @@ ALTER TABLE study_group_join_requests
   ADD COLUMN IF NOT EXISTS message text;
 
 CREATE TABLE IF NOT EXISTS study_group_messages (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id uuid NOT NULL REFERENCES study_groups(id) ON DELETE CASCADE,
   sender_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   content text NOT NULL,

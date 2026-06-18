@@ -24,7 +24,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Profiles table
 CREATE TABLE IF NOT EXISTS profiles (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   name text NOT NULL,
   email text UNIQUE NOT NULL,
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 -- Posts table
 CREATE TABLE IF NOT EXISTS posts (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   content text NOT NULL,
   file_url text,
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS posts (
 
 -- Notes table
 CREATE TABLE IF NOT EXISTS notes (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   title text NOT NULL,
   subject text NOT NULL,
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS notes (
 
 -- Events table
 CREATE TABLE IF NOT EXISTS events (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organizer_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   title text NOT NULL,
   description text NOT NULL,
@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS events (
 
 -- Study Groups table
 CREATE TABLE IF NOT EXISTS study_groups (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   creator_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   name text NOT NULL,
   subject text NOT NULL,
@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS study_groups (
 
 -- Jobs table
 CREATE TABLE IF NOT EXISTS jobs (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   poster_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   title text NOT NULL,
   company text NOT NULL,
@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 
 -- Mentorship Requests table
 CREATE TABLE IF NOT EXISTS mentorship_requests (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   requester_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   mentor_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   message text NOT NULL,
@@ -129,7 +129,7 @@ CREATE TABLE IF NOT EXISTS mentorship_requests (
 
 -- Notifications table
 CREATE TABLE IF NOT EXISTS notifications (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   type text NOT NULL,
   title text NOT NULL,
@@ -141,7 +141,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 -- Resume Templates table
 CREATE TABLE IF NOT EXISTS resume_templates (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   description text,
   template_data jsonb NOT NULL,
@@ -152,7 +152,7 @@ CREATE TABLE IF NOT EXISTS resume_templates (
 
 -- Resumes table
 CREATE TABLE IF NOT EXISTS resumes (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   template_id uuid REFERENCES resume_templates(id),
   title text NOT NULL,

@@ -5,14 +5,14 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_seen timestamptz DEFAULT now(
 
 -- Create conversations table
 CREATE TABLE IF NOT EXISTS conversations (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
 
 -- Create conversation_participants table (many-to-many relationship)
 CREATE TABLE IF NOT EXISTS conversation_participants (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id uuid REFERENCES conversations(id) ON DELETE CASCADE,
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   joined_at timestamptz DEFAULT now(),
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS conversation_participants (
 
 -- Create messages table
 CREATE TABLE IF NOT EXISTS messages (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id uuid REFERENCES conversations(id) ON DELETE CASCADE,
   sender_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   content text NOT NULL,

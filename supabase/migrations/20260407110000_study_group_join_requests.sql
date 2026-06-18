@@ -1,7 +1,7 @@
 -- Study group join-request workflow for private groups
 
 CREATE TABLE IF NOT EXISTS study_group_join_requests (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id uuid NOT NULL REFERENCES study_groups(id) ON DELETE CASCADE,
   requester_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
