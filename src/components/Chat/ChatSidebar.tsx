@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Search, X, UserPlus, UserMinus, Lock, Hash, Users } from 'lucide-react';
+import { Search, X, UserPlus, UserMinus, Lock, Hash, Users, Sparkles, MessageSquare, Radio, Plus } from 'lucide-react';
 import {
   StudexUser, StudexConversation, StudexChannel, FriendRequest
 } from '../../hooks/useStudexChat';
@@ -32,6 +32,7 @@ const AVATAR_COLORS = [
   'from-emerald-500 to-teal-600',
   'from-amber-500 to-orange-600',
   'from-blue-500 to-cyan-600',
+  'from-violet-500 to-purple-600',
 ];
 
 // ── DM Item row ────────────────────────────────────────────────
@@ -39,38 +40,41 @@ const DMItem: React.FC<{
   conversation: StudexConversation;
   isActive: boolean;
   onSelect: () => void;
-}> = ({ conversation, onSelect }) => {
+}> = ({ conversation, onSelect, isActive }) => {
   const partner = conversation.partner;
   const colorIdx = Math.abs(partner.username?.charCodeAt(0) || 0) % AVATAR_COLORS.length;
   const color = AVATAR_COLORS[colorIdx];
 
   return (
     <div
-      className={`group flex items-center gap-2.5 px-3 py-2 rounded-lg transition ${
-        false ? 'bg-indigo-500/20 text-indigo-300 font-medium' : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
+      onClick={onSelect}
+      className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 ${
+        isActive
+          ? 'bg-blue-500/20 border border-blue-500/30'
+          : 'text-gray-400 hover:text-white hover:bg-white/[0.04] border border-transparent'
       }`}
     >
-      <button onClick={onSelect} className="flex-1 flex items-center gap-2.5">
-        <div className="relative flex-shrink-0">
-          <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-white text-xs font-bold overflow-hidden`}>
-            {partner.avatar
-              ? <img src={partner.avatar} className="w-full h-full object-cover" />
-              : partner.name?.[0]?.toUpperCase() ?? '?'}
-          </div>
-          {partner.isOnline && (
-            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-[#09090b]" />
-          )}
+      <div className="relative flex-shrink-0">
+        <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-white text-xs font-bold overflow-hidden shadow-lg ring-2 ring-transparent group-hover:ring-white/10 transition-all`}>
+          {partner.avatar
+            ? <img src={partner.avatar} className="w-full h-full object-cover" />
+            : partner.name?.[0]?.toUpperCase() ?? '?'}
         </div>
-        <div className="flex-1 min-w-0 text-left">
-          <p className="truncate">{partner.name}</p>
-          <p className="truncate text-xs text-gray-600">@{partner.username}</p>
-        </div>
-        {conversation.unreadCount > 0 && (
-          <span className="w-5 h-5 bg-indigo-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
-            {conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}
-          </span>
+        {partner.isOnline && (
+          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#0d1016] shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
         )}
-      </button>
+      </div>
+      <div className="flex-1 min-w-0 text-left">
+        <p className={`text-sm font-medium truncate ${isActive ? 'text-blue-300' : 'text-gray-200'} group-hover:text-white transition-colors`}>
+          {partner.name}
+        </p>
+        <p className="text-xs text-gray-500 truncate">@{partner.username}</p>
+      </div>
+      {conversation.unreadCount > 0 && (
+        <span className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 shadow-lg shadow-blue-500/30">
+          {conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}
+        </span>
+      )}
     </div>
   );
 };
@@ -88,6 +92,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   const [activeTab, setActiveTab] = useState<'channels' | 'dms' | 'people'>('channels');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showRequests, setShowRequests] = useState(false);
+  const [channelSearch, setChannelSearch] = useState('');
   const requestsRef = useRef<HTMLDivElement>(null);
 
   const isOnline = useCallback((user: StudexUser) =>
@@ -100,73 +105,104 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
   const existingChannelNames = channels.map(c => c.name);
 
+  const filteredChannels = channels.filter(ch =>
+    ch.name.toLowerCase().includes(channelSearch.toLowerCase())
+  );
+
+  // Close requests dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (requestsRef.current && !requestsRef.current.contains(e.target as Node)) {
+        setShowRequests(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
   return (
-    <div className="h-full flex flex-col bg-[#09090b]/90 backdrop-blur-2xl border-r border-white/[0.06] overflow-hidden">
+    <div className="h-full flex flex-col bg-[#0d1016]/95 backdrop-blur-2xl border-r border-white/[0.06] overflow-hidden">
 
       {/* ── Header ── */}
-      <div className="px-4 pt-4 pb-3 border-b border-white/[0.06]">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
+      <div className="p-4 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
             <div className="relative">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">S</span>
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <MessageSquare className="w-4.5 h-4.5 text-white" />
               </div>
-              <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#09090b] ${connected ? 'bg-emerald-400' : 'bg-gray-600'}`} />
+              <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0d1016] ${connected ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-gray-600'}`} />
             </div>
             <div>
               <p className="text-white font-semibold text-sm">Studex Chat</p>
-              <p className="text-gray-600 text-[10px]">{connected ? 'Connected' : 'Connecting...'}</p>
+              <p className={`text-[10px] ${connected ? 'text-emerald-400' : 'text-gray-500'}`}>
+                {connected ? 'Connected' : 'Connecting...'}
+              </p>
             </div>
           </div>
           {/* Friend requests */}
           <div className="relative" ref={requestsRef}>
             <button
               onClick={() => setShowRequests(!showRequests)}
-              className="relative p-2 hover:bg-white/5 rounded-lg transition text-gray-400 hover:text-white"
+              className="relative p-2 hover:bg-white/5 rounded-xl transition text-gray-400 hover:text-white"
             >
               <UserPlus className="w-4 h-4" />
               {friendRequests.length > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-pink-500 rounded-full flex items-center justify-center text-[9px] font-bold text-white">
+                <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-pink-500 rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow-lg shadow-pink-500/30">
                   {friendRequests.length}
                 </span>
               )}
             </button>
             {showRequests && (
-              <div className="absolute top-full right-0 mt-1 w-72 bg-[#13131a] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
-                <div className="p-3 border-b border-white/5 flex items-center justify-between">
-                  <span className="text-white font-medium text-sm">Friend Requests</span>
-                  <button onClick={() => setShowRequests(false)}><X className="w-4 h-4 text-gray-500" /></button>
+              <div className="absolute top-full right-0 mt-2 w-80 rounded-2xl border border-white/10 bg-[#161b22] shadow-2xl shadow-black/30 z-50 overflow-hidden">
+                <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                  <span className="text-white font-semibold text-sm flex items-center gap-2">
+                    <UserPlus className="w-4 h-4 text-pink-400" />
+                    Friend Requests
+                  </span>
+                  <button onClick={() => setShowRequests(false)} className="p-1 hover:bg-white/5 rounded-lg transition">
+                    <X className="w-4 h-4 text-gray-500" />
+                  </button>
                 </div>
                 {friendRequests.length === 0 ? (
-                  <p className="text-gray-600 text-sm text-center py-6">No pending requests</p>
-                ) : friendRequests.map(req => (
-                  <div key={req._id} className="flex items-center gap-3 p-3 hover:bg-white/[0.03] border-b border-white/5 last:border-b-0">
-                    <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${AVATAR_COLORS[Math.abs(req.fromUsername?.charCodeAt(0) || 0) % 5]} flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden`}>
-                      {req.fromAvatar ? <img src={req.fromAvatar} className="w-full h-full object-cover" /> : req.fromName[0]?.toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-medium truncate">{req.fromName}</p>
-                      <p className="text-gray-600 text-xs truncate">{req.fromCollege}</p>
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => { onAcceptFriend(req._id, req); setShowRequests(false); }}
-                        className="p-1.5 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 rounded-lg transition text-xs"
-                      >OK</button>
-                      <button
-                        onClick={() => { onRejectFriend(req._id); setShowRequests(false); }}
-                        className="p-1.5 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded-lg transition"
-                      ><X className="w-3.5 h-3.5" /></button>
-                    </div>
+                  <div className="p-8 text-center">
+                    <Users className="w-10 h-10 text-gray-700 mx-auto mb-2" />
+                    <p className="text-gray-600 text-sm">No pending requests</p>
                   </div>
-                ))}
+                ) : (
+                  <div className="max-h-64 overflow-y-auto">
+                    {friendRequests.map(req => (
+                      <div key={req._id} className="flex items-center gap-3 p-3 hover:bg-white/[0.03] border-b border-white/5 last:border-b-0 transition">
+                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${AVATAR_COLORS[Math.abs(req.fromUsername?.charCodeAt(0) || 0) % 6]} flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden`}>
+                          {req.fromAvatar ? <img src={req.fromAvatar} className="w-full h-full object-cover" /> : req.fromName[0]?.toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-sm font-medium truncate">{req.fromName}</p>
+                          <p className="text-gray-500 text-xs truncate">@{req.fromUsername}</p>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => { onAcceptFriend(req._id, req); setShowRequests(false); }}
+                            className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 rounded-lg transition text-xs font-medium"
+                          >Accept</button>
+                          <button
+                            onClick={() => { onRejectFriend(req._id); setShowRequests(false); }}
+                            className="p-1.5 bg-white/5 hover:bg-red-500/20 rounded-lg transition"
+                          >
+                            <X className="w-4 h-4 text-gray-500 hover:text-red-400" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
 
         {/* ── Tab bar ── */}
-        <div className="flex px-2 border-b border-white/[0.05]">
+        <div className="flex p-1.5 bg-white/[0.03] rounded-xl border border-white/5">
           <TabButton
             active={activeTab === 'channels'}
             onClick={() => setActiveTab('channels')}
@@ -176,27 +212,29 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           <TabButton
             active={activeTab === 'dms'}
             onClick={() => setActiveTab('dms')}
-            icon={<Users className="w-3.5 h-3.5" />}
+            icon={<MessageSquare className="w-3.5 h-3.5" />}
             label="Messages"
             badge={conversations.length}
           />
           <TabButton
             active={activeTab === 'people'}
             onClick={() => setActiveTab('people')}
-            icon={<UserPlus className="w-3.5 h-3.5" />}
+            icon={<Users className="w-3.5 h-3.5" />}
             label="People"
           />
         </div>
       </div>
 
-      {/* ── Channel search (only when on channels tab) ── */}
+      {/* ── Channel Search (channels tab) ── */}
       {activeTab === 'channels' && (
         <div className="px-4 py-3 border-b border-white/[0.05]">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <input
+              value={channelSearch}
+              onChange={e => setChannelSearch(e.target.value)}
               placeholder="Search channels..."
-              className="w-full pl-9 pr-4 py-2 bg-white/[0.04] border border-white/[0.07] rounded-xl text-white text-sm placeholder-gray-600 focus:border-indigo-500/40 focus:outline-none transition"
+              className="w-full pl-10 pr-4 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-white text-sm placeholder-gray-500 focus:border-blue-500/40 focus:outline-none focus:ring-1 focus:ring-blue-500/20 transition"
             />
           </div>
         </div>
@@ -207,40 +245,59 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
         {/* Channels tab */}
         {activeTab === 'channels' && (
-          <div className="border-b border-white/[0.05]">
-            <div className="w-full flex items-center justify-between px-4 py-2.5">
-              <button onClick={() => setChannelsOpen(!channelsOpen)} className="flex items-center gap-1 text-[10px] font-bold text-gray-500 uppercase tracking-widest hover:text-gray-400">
-                {channelsOpen ? 'v' : '>'} Channels {channels.length}
+          <div className="p-3 border-b border-white/[0.05]">
+            <div className="w-full flex items-center justify-between px-2 py-2 mb-2">
+              <button
+                onClick={() => setChannelsOpen(!channelsOpen)}
+                className="flex items-center gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest hover:text-gray-400 transition"
+              >
+                <span className={`transition-transform ${channelsOpen ? 'rotate-90' : ''}`}>
+                  <Radio className="w-3 h-3" />
+                </span>
+                Channels {channels.length}
               </button>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="p-1 hover:bg-white/5 rounded text-gray-500 hover:text-indigo-400 transition"
+                className="p-1.5 hover:bg-blue-500/20 rounded-lg text-gray-500 hover:text-blue-400 transition"
               >
-                <UserPlus className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5" />
               </button>
             </div>
             {channelsOpen && (
-              <div className="px-2 pb-2 space-y-0.5">
-                {channels.map(ch => (
+              <div className="space-y-1">
+                {filteredChannels.length > 0 ? filteredChannels.map(ch => (
                   <button
                     key={ch._id}
                     onClick={() => onSelectChannel(ch)}
-                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
                       activeChannelId === ch._id
-                        ? 'bg-indigo-500/20 text-indigo-300 font-medium'
-                        : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
+                        ? 'bg-blue-500/20 text-blue-300 font-medium border border-blue-500/30'
+                        : 'text-gray-400 hover:text-white hover:bg-white/[0.04] border border-transparent'
                     }`}
                   >
                     {ch.isPrivate
                       ? <Lock className="w-4 h-4 flex-shrink-0 text-gray-600" />
-                      : <Hash className="w-4 h-4 flex-shrink-0 text-gray-600" />}
+                      : <Hash className="w-4 h-4 flex-shrink-0 text-gray-600" />
+                    }
                     <span className="truncate">{ch.name}</span>
+                    {ch.memberCount && (
+                      <span className="ml-auto text-[10px] text-gray-600 bg-white/5 px-1.5 py-0.5 rounded-full">
+                        {ch.memberCount}
+                      </span>
+                    )}
                   </button>
-                ))}
-                {channels.length === 0 && (
-                  <div className="px-3 py-4 text-center">
-                    <p className="text-gray-700 text-xs mb-2">No channels yet</p>
-                    <button onClick={() => setShowCreateModal(true)} className="text-indigo-400 text-xs hover:text-indigo-300">+ Create one</button>
+                )) : (
+                  <div className="p-4 text-center">
+                    <Hash className="w-8 h-8 text-gray-700 mx-auto mb-2" />
+                    <p className="text-gray-600 text-xs mb-3">
+                      {channelSearch ? 'No channels match your search' : 'No channels yet'}
+                    </p>
+                    <button
+                      onClick={() => setShowCreateModal(true)}
+                      className="text-blue-400 text-xs hover:text-blue-300 transition flex items-center gap-1.5 mx-auto"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Create channel
+                    </button>
                   </div>
                 )}
               </div>
@@ -250,24 +307,32 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
         {/* DMs tab */}
         {activeTab === 'dms' && (
-          <div>
-            <div className="w-full flex items-center gap-1 px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-              {dmsOpen ? 'v' : '>'} Messages {conversations.length}
+          <div className="p-3">
+            <div className="w-full flex items-center gap-2 px-2 py-2 mb-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+              <span className={`transition-transform ${dmsOpen ? 'rotate-90' : ''}`}>
+                <Radio className="w-3 h-3" />
+              </span>
+              Messages {conversations.length}
             </div>
             {dmsOpen && (
-              <div className="px-2 pb-2 space-y-0.5">
-                {conversations.map(conv => (
+              <div className="space-y-1">
+                {conversations.length > 0 ? conversations.map(conv => (
                   <DMItem
                     key={(conv.partner.supabaseId || (conv.partner as any)._id) as string}
                     conversation={conv}
                     isActive={activeDMId === (conv.partner.supabaseId || (conv.partner as any)._id)}
                     onSelect={() => onSelectDM(conv)}
                   />
-                ))}
-                {conversations.length === 0 && (
-                  <div className="px-3 py-4 text-center">
-                    <p className="text-gray-700 text-xs mb-2">No conversations yet</p>
-                    <button onClick={() => setActiveTab('people')} className="text-indigo-400 text-xs hover:text-indigo-300">+ Start a chat</button>
+                )) : (
+                  <div className="p-4 text-center">
+                    <MessageSquare className="w-8 h-8 text-gray-700 mx-auto mb-2" />
+                    <p className="text-gray-600 text-xs mb-3">No conversations yet</p>
+                    <button
+                      onClick={() => setActiveTab('people')}
+                      className="text-blue-400 text-xs hover:text-blue-300 transition flex items-center gap-1.5 mx-auto"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" /> Start a chat
+                    </button>
                   </div>
                 )}
               </div>
@@ -287,19 +352,24 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       </div>
 
       {/* ── Footer ── */}
-      <div className="px-4 py-3 border-t border-white/5">
-        <div className="flex items-center gap-2">
-          <div className="flex -space-x-1.5">
+      <div className="p-4 border-t border-white/5">
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+          <div className="flex -space-x-2">
             {onlineUsers.slice(0, 4).map((u: any, i) => (
               <div
                 key={i}
-                className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-[9px] font-bold border-2 border-[#09090b] overflow-hidden"
+                className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-[9px] font-bold border-2 border-[#0d1016] overflow-hidden"
               >
                 {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : (u.name?.[0] ?? '?')}
               </div>
             ))}
+            {onlineUsers.length > 4 && (
+              <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white text-[9px] font-bold border-2 border-[#0d1016]">
+                +{onlineUsers.length - 4}
+              </div>
+            )}
           </div>
-          <p className="text-gray-600 text-xs">{onlineUsers.length} online</p>
+          <p className="text-gray-500 text-xs">{onlineUsers.length} online</p>
         </div>
       </div>
 
@@ -307,7 +377,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       {showCreateModal && (
         <CreateChannelModal
           existingChannelNames={existingChannelNames}
-          onCreate={onCreateChannel}
+          onCreate={(name, description, isPrivate) => {
+            onCreateChannel(name, description, isPrivate);
+            setShowCreateModal(false);
+          }}
           onClose={() => setShowCreateModal(false)}
         />
       )}
@@ -325,8 +398,10 @@ const TabButton: React.FC<{
 }> = ({ active, onClick, icon, label, badge }) => (
   <button
     onClick={onClick}
-    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold transition relative ${
-      active ? 'text-indigo-400' : 'text-gray-600 hover:text-gray-400'
+    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold transition-all relative rounded-lg ${
+      active
+        ? 'text-white bg-blue-500/20 shadow-lg shadow-blue-500/10'
+        : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.03]'
     }`}
   >
     {icon}
@@ -335,9 +410,6 @@ const TabButton: React.FC<{
       <span className="w-4 h-4 bg-white/10 rounded-full text-[9px] font-bold flex items-center justify-center">
         {badge}
       </span>
-    )}
-    {active && (
-      <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-indigo-500 rounded-full" />
     )}
   </button>
 );
