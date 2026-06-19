@@ -66,8 +66,14 @@ const EventsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"upcoming" | "past" | "my-events">("upcoming");
   const [sortBy, setSortBy] = useState<"date" | "trending" | "popular">("date");
   const [showCreateEvent, setShowCreateEvent] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [shareToast, setShareToast] = useState<string | null>(null);
+
+  // Get fresh event from events array for the detail modal
+  const selectedEvent = useMemo(
+    () => (selectedEventId ? events.find((e) => e.id === selectedEventId) ?? null : null),
+    [events, selectedEventId]
+  );
 
   const categories = Object.keys(categoryLabels);
 
@@ -125,7 +131,7 @@ const EventsPage: React.FC = () => {
     try { await toggleLike(eventId); } catch (err) { console.error("Like error:", err); }
   }, [toggleLike]);
 
-  const openEventDetail = useCallback((event: Event) => { setSelectedEvent(event); recordView(event.id); }, [recordView]);
+  const openEventDetail = useCallback((event: Event) => { setSelectedEventId(event.id); recordView(event.id); }, [recordView]);
 
   const formatDateShort = (date: Date) => {
     const d = new Date(date);
@@ -447,15 +453,15 @@ const EventsPage: React.FC = () => {
       {selectedEvent && (
         <EventDetailModal
           event={selectedEvent}
-          isOpen={!!selectedEvent}
-          onClose={() => setSelectedEvent(null)}
+          isOpen={true}
+          onClose={() => setSelectedEventId(null)}
           onJoin={handleJoinEvent}
           onLeave={handleLeaveEvent}
           onToggleSave={handleToggleSave}
           onToggleLike={handleToggleLike}
           onShare={handleShare}
-          isUserAttending={selectedEvent ? isUserAttending(selectedEvent.id) : false}
-          isUserOrganizer={selectedEvent ? isUserOrganizer(selectedEvent.id) : false}
+          isUserAttending={isUserAttending(selectedEvent.id)}
+          isUserOrganizer={isUserOrganizer(selectedEvent.id)}
         />
       )}
 

@@ -50,6 +50,15 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
+  // Listen for navigation events from child components
+  useEffect(() => {
+    const handleNavigate = (e: CustomEvent<{ tab: string }>) => {
+      setActiveTab(e.detail.tab);
+    };
+    window.addEventListener('navigate', handleNavigate as EventListener);
+    return () => window.removeEventListener('navigate', handleNavigate as EventListener);
+  }, []);
+
   // Show reset password form if we're on a reset URL
   if (showResetPassword) {
     return (
