@@ -1,11 +1,10 @@
 import React, { useState, useMemo, useCallback } from "react";
 import {
   Calendar, MapPin, Users, Plus, Search, Filter, TrendingUp, Star, Clock,
-  Heart, Bookmark, Share2, Globe, Sparkles, ArrowRight, Trophy,
-  AlertCircle, ChevronRight, Zap, Tag, ArrowUpRight, Gauge, Wallet
+  Heart, Bookmark, Share2, Globe, Sparkles, Trophy,
+  AlertCircle, Tag, ArrowUpRight
 } from "lucide-react";
 import { Event, EventCategory } from "../../types";
-import { useAuth } from "../AuthProvider";
 import { useEvents } from "../../hooks/useEvents";
 import CreateEventModal from "./CreateEventModal";
 import EventDetailModal from "./EventDetailModal";
@@ -55,10 +54,9 @@ const difficultyBg: Record<string, string> = {
 };
 
 const EventsPage: React.FC = () => {
-  const { user } = useAuth();
   const {
     events, loading, error,
-    joinEvent, leaveEvent, deleteEvent,
+    joinEvent, leaveEvent,
     toggleSave, toggleLike, recordView,
     isUserAttending, isUserOrganizer, refetch,
   } = useEvents();
@@ -112,11 +110,6 @@ const EventsPage: React.FC = () => {
   const handleLeaveEvent = useCallback(async (eventId: string) => {
     try { await leaveEvent(eventId); } catch (err) { console.error("Leave error:", err); }
   }, [leaveEvent]);
-
-  const handleDeleteEvent = useCallback(async (eventId: string) => {
-    if (!window.confirm("Delete this event?")) return;
-    try { await deleteEvent(eventId); } catch (err) { console.error("Delete error:", err); }
-  }, [deleteEvent]);
 
   const handleShare = useCallback(async (event: Event) => {
     const url = `${window.location.origin}/events/${event.id}`;
@@ -208,7 +201,7 @@ const EventsPage: React.FC = () => {
                   { label: "Free Events", value: stats.freeEvents, icon: Tag },
                 ].map((s) => (
                   <div key={s.label} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-sm transition-all hover:border-white/20 hover:bg-white/[0.05] sm:p-5">
-                    <div className="absolute -right-2 -top-2 h-12 w-12 rounded-full bg-blue-500/5 blur-xl group-hover:bg-blue-4520/8" />
+                    <div className="absolute -right-2 -top-2 h-12 w-12 rounded-full bg-blue-500/5 blur-xl group-hover:bg-blue-500/8" />
                     <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-gray-500">{s.label}</p>
                     <div className="mt-2 flex items-end gap-2">
                       <span className="text-2xl font-bold text-white tabular-nums leading-none">{s.value}</span>
@@ -310,3 +303,166 @@ const EventsPage: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* ======== Event Cards Grid ======== */}
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {filteredEvents.length > 0 ? filteredEvents.map((event) => {
+            const dateInfo = formatDateShort(event.date);
+            const isAttending = isUserAttending(event.id);
+            const spotsLeft = event.maxAttendees ? event.maxAttendees - (event.attendees?.length || 0) : null;
+            return (
+              <div key={event.id} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#161b22]/80 backdrop-blur-xl transition-all hover:border-white/20 hover:shadow-xl hover:shadow-black/20 hover:-translate-y-1">
+                {/* Cover Image */}
+                <div className="relative h-36 overflow-hidden">
+                  <img src={event.coverImage || `https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&h=300&fit=crop`} alt={event.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#161b22] via-[#161b22]/30 to-transparent" />
+
+                  {/* Date Badge */}
+                  <div className="absolute top-3 left-3 flex h-14 w-14 flex-col items-center justify-center rounded-xl border border-white/10 bg-black/40 backdrop-blur-xl">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-blue-400">{dateInfo.month}</span>
+                    <span className="text-xl font-bold leading-none text-white">{dateInfo.day}</span>
+                  </div>
+
+                  {/* Status Badges */}
+                  <div className="absolute top-3 right-3 flex flex-col gap-1.5">
+                    {event.isFeatured && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/80 px-2.5 py-1 text-[10px] font-semibold text-black backdrop-blur-xl">
+                        <Star className="h-3 w-3" /> Featured
+                      </span>
+                    )}
+                    {isAttending && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/80 px-2.5 py-1 text-[10px] font-semibold text-black backdrop-blur-xl">
+                        Going
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-4">
+                  {/* Category + Difficulty */}
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${categoryColors[event.category] || 'bg-gray-500/20 text-gray-300 border-gray-500/30'}`}>
+                      {categoryLabels[event.category] || event.category}
+                    </span>
+                    {event.difficulty && (
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${difficultyBg[event.difficulty]} ${difficultyColors[event.difficulty]}`}>
+                        {event.difficulty}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Title */}
+                  <h3 onClick={() => openEventDetail(event)} className="mb-1.5 line-clamp-2 text-base font-semibold leading-snug text-white cursor-pointer hover:text-blue-300 transition-colors group-hover:text-blue-200">
+                    {event.title}
+                  </h3>
+
+                  {/* Description */}
+                  <p className="mb-3 line-clamp-2 text-xs leading-relaxed text-gray-400">{event.description}</p>
+
+                  {/* Meta Info */}
+                  <div className="mb-3 space-y-1.5">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      {event.isOnline ? <Globe className="h-3.5 w-3.5 shrink-0 text-green-400" /> : <MapPin className="h-3.5 w-3.5 shrink-0 text-orange-400" />}
+                      <span className="truncate">{event.isOnline ? 'Online Event' : event.location}</span>
+                    </div>
+                    {event.tags?.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {event.tags.slice(0, 3).map((tag) => (
+                          <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-gray-500">#{tag}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="flex items-center justify-between border-t border-white/5 pt-3">
+                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                      <div className="flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5" />
+                        <span>{event.attendees?.length || 0}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Heart className="h-3.5 w-3.5" />
+                        <span>{event.likeCount || 0}</span>
+                      </div>
+                      {spotsLeft !== null && (
+                        <span className={`text-[10px] font-medium ${spotsLeft <= 5 ? 'text-red-400' : 'text-gray-500'}`}>
+                          {spotsLeft === 0 ? 'Full' : `${spotsLeft} spots left`}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      {event.fee !== undefined && event.fee > 0 && (
+                        <span className="text-xs font-medium text-green-400">₹{event.fee}</span>
+                      )}
+
+                      {/* Quick Actions */}
+                      <button onClick={() => handleToggleSave(event.id)} className={`p-1.5 rounded-lg transition-colors ${event.isSaved ? 'text-blue-400 bg-blue-500/20' : 'text-gray-500 hover:text-white hover:bg-white/10'}`}>
+                        <Bookmark className={`h-4 w-4 ${event.isSaved ? 'fill-current' : ''}`} />
+                      </button>
+                      <button onClick={() => handleToggleLike(event.id)} className={`p-1.5 rounded-lg transition-colors ${event.isLiked ? 'text-red-400 bg-red-500/20' : 'text-gray-500 hover:text-white hover:bg-white/10'}`}>
+                        <Heart className={`h-4 w-4 ${event.isLiked ? 'fill-current' : ''}`} />
+                      </button>
+                      <button onClick={() => handleShare(event)} className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors">
+                        <Share2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Click overlay for details */}
+                <div onClick={() => openEventDetail(event)} className="absolute inset-0 cursor-pointer" />
+              </div>
+            );
+          }) : (
+            <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+              <Calendar className="h-16 w-16 text-gray-700 mb-4" />
+              <h3 className="mb-2 text-lg font-medium text-gray-400">No events found</h3>
+              <p className="mb-6 text-sm text-gray-500">Try adjusting your filters or search term</p>
+              <button onClick={() => { setSearchTerm(""); setSelectedCategory("all"); setActiveTab("upcoming"); }} className="rounded-xl bg-white/5 border border-white/10 px-5 py-2.5 text-sm font-medium text-white hover:bg-white/10 transition-all">
+                Clear Filters
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Empty State when no results */}
+        {filteredEvents.length === 0 && (
+          <div className="mt-8 text-center">
+            <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-white/[0.03] mb-4">
+              <AlertCircle className="h-8 w-8 text-gray-500" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-300 mb-2">No events found</h3>
+            <p className="text-sm text-gray-500 mb-6">Try adjusting your filters or search term</p>
+            <button onClick={() => { setSearchTerm(""); setSelectedCategory("all"); setActiveTab("upcoming"); setSortBy("date"); }} className="rounded-xl bg-white/5 border border-white/10 px-5 py-2.5 text-sm font-medium text-white hover:bg-white/10 transition-all">
+              Clear all filters
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ======== Event Detail Modal ======== */}
+      {selectedEvent && (
+        <EventDetailModal
+          event={selectedEvent}
+          isOpen={!!selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+          onJoin={handleJoinEvent}
+          onLeave={handleLeaveEvent}
+          onToggleSave={handleToggleSave}
+          onToggleLike={handleToggleLike}
+          onShare={handleShare}
+          isUserAttending={selectedEvent ? isUserAttending(selectedEvent.id) : false}
+          isUserOrganizer={selectedEvent ? isUserOrganizer(selectedEvent.id) : false}
+        />
+      )}
+
+      {/* ======== Create Event Modal ======== */}
+      <CreateEventModal isOpen={showCreateEvent} onClose={() => setShowCreateEvent(false)} />
+    </div>
+  );
+};
+
+export default EventsPage;

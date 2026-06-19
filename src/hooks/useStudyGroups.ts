@@ -711,7 +711,9 @@ export const useStudyGroups = () => {
       console.error('Error generating invite link:', err);
       throw err;
     }
-  };async (groupId: string, updates: Partial<{
+  };
+
+  const updateStudyGroup = async (groupId: string, updates: Partial<{
     name: string;
     subject: string;
     description: string;
@@ -922,7 +924,7 @@ export const useStudyGroups = () => {
     joinStudyGroup,
     leaveStudyGroup,
     respondToJoinRequest,
-    // updateStudyGroup,
+    updateStudyGroup,
     deleteStudyGroup,
     removeMember,
     generateInviteLink,

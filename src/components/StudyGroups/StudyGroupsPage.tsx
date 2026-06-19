@@ -257,58 +257,58 @@ const StudyGroupsPage: React.FC = () => {
         <div className="absolute -bottom-20 left-12 h-48 w-48 rounded-full bg-cyan-400/10 blur-3xl" />
 
         <div className="relative grid gap-5 p-4 sm:p-6 md:p-8 xl:grid-cols-[1.4fr_0.9fr] xl:gap-8">
-          <div className="space-y-5 sm:space-y-6">
+          <div className="space-y-4 sm:space-y-5 md:space-y-6">
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/10 px-3 py-1.5 text-xs text-blue-200 sm:px-4 sm:py-2 sm:text-sm">
-              <Sparkles className="h-4 w-4" />
+              <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               Study Groups
             </div>
 
-            <div className="space-y-3 sm:space-y-4 flex-wrap">
-              <h1 className="max-w-2xl text-2xl font-bold leading-tight tracking-tight text-white sm:text-5xl sm:leading-tight">
+            <div className="space-y-2 sm:space-y-3">
+              <h1 className="max-w-2xl text-xl font-bold leading-tight tracking-tight text-white sm:text-3xl lg:text-5xl lg:leading-tight">
                 Build study circles, approve members, and keep every session in one place.
               </h1>
-              <p className="max-w-2xl text-sm leading-6 text-gray-300 sm:text-lg sm:leading-7">
-                Join open groups, request access to private rooms, manage approvals, and open a real group chat with the same polished surface as the notes library.
+              <p className="max-w-2xl text-xs leading-5 text-gray-300 sm:text-sm sm:leading-6 lg:text-lg lg:leading-7">
+                Join open groups, request access to private rooms, manage approvals, and open a real group chat.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5 backdrop-blur sm:p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Groups</p>
-                <p className="mt-2 text-2xl font-semibold text-white leading-none">{stats.totalGroups}</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur sm:rounded-2xl sm:p-4">
+                <p className="text-[10px] uppercase tracking-[0.15em] text-gray-400 sm:text-xs">Groups</p>
+                <p className="mt-1 text-lg font-semibold text-white sm:text-2xl">{stats.totalGroups}</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5 backdrop-blur sm:p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Joined</p>
-                <p className="mt-2 text-2xl font-semibold text-white leading-none">{stats.joinedGroups}</p>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur sm:rounded-2xl sm:p-4">
+                <p className="text-[10px] uppercase tracking-[0.15em] text-gray-400 sm:text-xs">Joined</p>
+                <p className="mt-1 text-lg font-semibold text-white sm:text-2xl">{stats.joinedGroups}</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-3.5 backdrop-blur sm:p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Mine</p>
-                <p className="mt-2 text-2xl font-semibold text-white leading-none">{stats.myGroups}</p>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur sm:rounded-2xl sm:p-4">
+                <p className="text-[10px] uppercase tracking-[0.15em] text-gray-400 sm:text-xs">Mine</p>
+                <p className="mt-1 text-lg font-semibold text-white sm:text-2xl">{stats.myGroups}</p>
               </div>
-              <div className="col-span-2 rounded-2xl border border-white/10 bg-white/5 p-3.5 backdrop-blur sm:col-span-1 sm:p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Private</p>
-                <p className="mt-2 text-2xl font-semibold text-white leading-none">{stats.privateGroups}</p>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur sm:rounded-2xl sm:p-4">
+                <p className="text-[10px] uppercase tracking-[0.15em] text-gray-400 sm:text-xs">Private</p>
+                <p className="mt-1 text-lg font-semibold text-white sm:text-2xl">{stats.privateGroups}</p>
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-3">
               <button
                 onClick={() => setShowCreateGroup(true)}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition-transform duration-200 hover:-translate-y-0.5 hover:bg-blue-100 sm:w-auto"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition-transform duration-200 hover:-translate-y-0.5 hover:bg-blue-100 sm:w-auto sm:rounded-2xl sm:px-5 sm:py-3"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 Create Group
               </button>
               <button
                 onClick={() => setShowNotifications((prev) => !prev)}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition-colors duration-200 hover:border-white/25 hover:bg-white/10 sm:w-auto"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:border-white/25 hover:bg-white/10 sm:w-auto sm:rounded-2xl sm:px-5 sm:py-3"
               >
-                <Bell className="h-4 w-4" />
+                <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 {notificationItems.length} alerts
               </button>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
               {subjectChips.map((chip) => {
                 const active = selectedSubject === chip.label;
 
@@ -316,13 +316,25 @@ const StudyGroupsPage: React.FC = () => {
                   <button
                     key={chip.label}
                     onClick={() => setSelectedSubject(active ? 'all' : chip.label)}
-                    className={`shrink-0 rounded-full border px-4 py-2 text-sm transition-all ${active ? 'border-blue-400/40 bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'border-white/10 bg-white/5 text-gray-300 hover:border-white/20 hover:bg-white/10 hover:text-white'}`}
+                    className={`shrink-0 rounded-full border px-3 py-1.5 text-xs transition-all sm:px-4 sm:py-2 ${active ? 'border-blue-400/40 bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'border-white/10 bg-white/5 text-gray-300 hover:border-white/20 hover:bg-white/10 hover:text-white'}`}
                   >
                     {chip.label}
-                    <span className="ml-2 rounded-full bg-black/15 px-2 py-0.5 text-xs">{chip.count}</span>
+                    <span className="ml-1.5 rounded-full bg-black/15 px-1.5 py-0.5 text-[10px] sm:px-2 sm:py-0.5 sm:text-xs">{chip.count}</span>
                   </button>
                 );
               })}
+            </div>
+
+            <div className="sm:hidden">
+              <select
+                value={selectedPrivacy}
+                onChange={(e) => setSelectedPrivacy(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-[#0d1117] px-3 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="all">All groups</option>
+                <option value="public">Public</option>
+                <option value="private">Private</option>
+              </select>
             </div>
           </div>
 
